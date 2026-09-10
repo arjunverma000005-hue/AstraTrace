@@ -110,9 +110,62 @@ def verify_sample_metadata() -> bool:
         log("Sample Metadata Fixture", "FAIL", str(e))
         return False
 
+def verify_ingestion_pipeline() -> bool:
+    """Verifies Milestone 2 GeoTIFF parsing, tiling, and manifest creation."""
+    try:
+        from fastapi.testclient import TestClient
+        from apps.backend.app.main import create_app
+        from apps.backend.app.services.ingestion import IngestionService
+        from apps.backend.app.schemas.ingest import IngestRequest
+        from datetime import datetime, timezone
+        import rasterio
+
+        # 1. Verify sample GeoTIFF exists and has valid geospatial headers
+        sample_tiff = PROJECT_ROOT / "data/samples/scenes/scene_2023_01_15.tif"
+        if not sample_tiff.exists():
+            log("Milestone 2 Sample GeoTIFF", "FAIL", f"Missing {sample_tiff}")
+            return False
+
+        with rasterio.open(sample_tiff) as src:
+            assert src.width == 512 and src.height == 512
+            assert src.count == 4
+            assert str(src.crs) == "EPSG:32643"
+        log("Milestone 2 GeoTIFF Inspection", "PASS", f"512x512 4-band EPSG:32643 verified")
+
+        # 2. Ingest via IngestionService
+        service = IngestionService(project_root=PROJECT_ROOT)
+        req = IngestRequest(
+            source_uri="data/samples/scenes/scene_2023_01_15.tif",
+            sensor="SENTINEL-2",
+            collection="verification_collection",
+            acquired_at=datetime(2023, 1, 15, 10, 30, tzinfo=timezone.utc),
+            tile_size=256,
+            overlap=25,
+        )
+        res = service.ingest_scene(req)
+        assert res.tiles_generated == 9
+        assert res.status == "INDEXED"
+        assert (PROJECT_ROOT / res.manifest_path).exists()
+        log("Milestone 2 Ingestion Service", "PASS", f"Scene: {res.scene_id}, Tiles: {res.tiles_generated}")
+
+        # 3. Verify API endpoint POST /api/v1/ingest and GET /api/v1/ingest/manifest/{scene_id}
+        app = create_app()
+        client = TestClient(app)
+        api_res = client.get(f"/api/v1/ingest/manifest/{res.scene_id}")
+        assert api_res.status_code == 200
+        manifest_data = api_res.json()
+        assert manifest_data["scene_id"] == res.scene_id
+        assert len(manifest_data["tiles"]) == 9
+        log("Milestone 2 Ingestion API", "PASS", f"GET /api/v1/ingest/manifest/{res.scene_id} returned 200 OK")
+
+        return True
+    except Exception as e:
+        log("Milestone 2 Ingestion Verification", "FAIL", str(e))
+        return False
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1 FOUNDATION VERIFICATION")
+    print("ASTRATRACE MILESTONE 1 & 2 FOUNDATION & INGESTION VERIFICATION")
     print("=" * 60)
 
     results = [
@@ -120,11 +173,12 @@ def main():
         verify_configuration(),
         verify_backend_health(),
         verify_sample_metadata(),
+        verify_ingestion_pipeline(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1 & 2 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")

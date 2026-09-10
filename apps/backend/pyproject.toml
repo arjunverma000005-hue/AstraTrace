@@ -17,6 +17,11 @@ dependencies = [
     "pydantic>=2.7.0",
     "pydantic-settings>=2.3.0",
     "python-dotenv>=1.0.1",
+    "numpy>=2.0.0",
+    "pillow>=10.0.0",
+    "rasterio>=1.4.0",
+    "shapely>=2.0.0",
+    "tifffile>=2024.0.0",
 ]
 
 [project.optional-dependencies]

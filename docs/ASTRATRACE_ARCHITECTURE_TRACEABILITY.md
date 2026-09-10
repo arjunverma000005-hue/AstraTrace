@@ -23,9 +23,14 @@
 │ UI Error Boundary                    │ apps/frontend/src/components/     │ Implemented      │ M1        │
 │ Docker Containerization              │ docker/                           │ Implemented      │ M1        │
 │ Air-Gapped Offline Profile           │ docker/offline-compose.yml        │ Implemented      │ M1        │
-│ Backend Automated Unit Tests         │ tests/backend/                    │ Implemented      │ M1        │
-│ End-to-End Foundation Verifier       │ scripts/verify_foundation.py      │ Implemented      │ M1        │
-│ Raster Preprocessing (GDAL/Rasterio) │ scripts/ingest_scene.py           │ Planned          │ M2        │
+│ Backend Automated Unit Tests         │ tests/backend/                    │ Implemented      │ M1/M2     │
+│ End-to-End System Verifier           │ scripts/verify_foundation.py      │ Implemented      │ M1/M2     │
+│ Raster Preprocessing & Tiling Engine │ apps/backend/app/services/ingest* │ Implemented      │ M2        │
+│ Ingestion Pydantic Schemas           │ apps/backend/app/schemas/ingest.py│ Implemented      │ M2        │
+│ Ingestion REST Endpoints             │ apps/backend/app/api/v1/router.py │ Implemented      │ M2        │
+│ Scene Ingestion CLI Utility          │ scripts/ingest_scene.py           │ Implemented      │ M2        │
+│ Synthetic Bitemporal Scene Generator │ scripts/generate_sample_scenes.py │ Implemented      │ M2        │
+│ Provenance Manifest Storage          │ data/processed/{scene_id}/        │ Implemented      │ M2        │
 │ PostgreSQL / PostGIS STAC Catalog    │ apps/backend/app/models/          │ Planned          │ M3        │
 │ pgvector HNSW Vector Store           │ apps/backend/app/models/          │ Planned          │ M3        │
 │ Baseline Image Differencing & NDVI   │ apps/backend/app/services/change  │ Planned          │ M5        │

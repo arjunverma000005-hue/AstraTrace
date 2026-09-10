@@ -26,7 +26,8 @@ class NotFoundError(AstraTraceException):
 class ValidationError(AstraTraceException):
     """Raised when input fails domain validation rules."""
     def __init__(self, message: str = "Validation failed", details: Optional[Dict[str, Any]] = None):
-        super().__init__(message, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, details=details)
+        code = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", status.HTTP_422_UNPROCESSABLE_ENTITY)
+        super().__init__(message, status_code=code, details=details)
 
 
 def register_error_handlers(app: FastAPI) -> None:

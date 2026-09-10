@@ -106,12 +106,47 @@ npm run build
 ### 6.3 Run End-to-End Foundation Verification
 From project root:
 ```powershell
-python scripts/verify_foundation.py
+.\apps\backend\.venv\Scripts\python scripts/verify_foundation.py
 ```
 
 ---
 
-## 7. Offline-First Principles
+## 7. Scene Ingestion & Tiling Pipeline (Milestone 2)
+
+### 7.1 Generate Synthetic Sample Scenes
+Generate two authentic bitemporal Sentinel-2 scenes (512x512, 4 bands, 10m UTM EPSG:32643):
+```powershell
+.\apps\backend\.venv\Scripts\python scripts/generate_sample_scenes.py
+```
+
+### 7.2 Ingest Scene via CLI
+Ingest, validate CRS, slice into 256x256 tiles with 25px overlap, and generate SHA-256 provenance manifest:
+```powershell
+.\apps\backend\.venv\Scripts\python scripts/ingest_scene.py --source data/samples/scenes/scene_2023_01_15.tif --sensor SENTINEL-2 --acquired-at 2023-01-15T10:30:00Z
+```
+
+### 7.3 Ingest Scene via REST API
+```bash
+curl -X POST "http://localhost:8000/api/v1/ingest" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_uri": "data/samples/scenes/scene_2023_01_15.tif",
+    "sensor": "SENTINEL-2",
+    "collection": "demo_archive",
+    "acquired_at": "2023-01-15T10:30:00Z",
+    "tile_size": 256,
+    "overlap": 25
+  }'
+```
+
+### 7.4 Retrieve Ingestion Manifest
+```bash
+curl "http://localhost:8000/api/v1/ingest/manifest/scn_sentinel-2_20230115_96ed9480"
+```
+
+---
+
+## 8. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
