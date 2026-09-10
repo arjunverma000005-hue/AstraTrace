@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter
 from apps.backend.app.api.v1.endpoints.catalog import router as catalog_router
+from apps.backend.app.api.v1.endpoints.change import router as change_router
 from apps.backend.app.api.v1.endpoints.search import router as search_router
 from apps.backend.app.api.v1.endpoints.stac import router as stac_router
 from apps.backend.app.config import settings
@@ -13,6 +14,7 @@ router = APIRouter()
 router.include_router(catalog_router)
 router.include_router(stac_router)
 router.include_router(search_router)
+router.include_router(change_router)
 
 
 @router.get(

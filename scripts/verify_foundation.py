@@ -276,9 +276,111 @@ def verify_baseline_retrieval() -> bool:
         log("Milestone 4 Baseline Retrieval", "FAIL", str(e))
         return False
 
+def verify_change_detection() -> bool:
+    """Verifies Milestone 5 Baseline Change Detection Pipeline."""
+    try:
+        import numpy as np
+        from apps.backend.app.main import create_app
+        from apps.backend.app.schemas.change import ChangeDetectionRequest, ScenePairChangeRequest
+        from apps.backend.app.services.change.detector import BaselineChangeDetector
+        from apps.backend.app.services.change.differencing import compute_spectral_difference, compute_index_deltas, compute_otsu_threshold
+        from apps.backend.app.services.change.morphology import binary_erosion, binary_dilation, filter_small_components
+        from apps.backend.app.services.change.service import ChangeDetectionService
+        from fastapi.testclient import TestClient
+
+        # 1. Pure-NumPy Morphology
+        test_mask = np.zeros((10, 10), dtype=bool)
+        test_mask[3:7, 3:7] = True
+        eroded = binary_erosion(test_mask)
+        dilated = binary_dilation(test_mask)
+        assert eroded.sum() < test_mask.sum()
+        assert dilated.sum() > test_mask.sum()
+        filtered = filter_small_components(test_mask, min_pixels=20)
+        assert filtered.sum() == 0  # 16 < 20
+        log("Milestone 5 NumPy Morphology", "PASS", "Erosion, dilation & CC area filter verified")
+
+        # 2. Differencing & Otsu
+        t1_arr = np.full((4, 64, 64), 0.2, dtype=np.float32)
+        t2_arr = np.full((4, 64, 64), 0.7, dtype=np.float32)
+        diff = compute_spectral_difference(t1_arr, t2_arr)
+        assert 0.0 <= float(diff.min()) and float(diff.max()) <= 1.0
+        otsu_th = compute_otsu_threshold(diff)
+        assert 0.15 <= otsu_th <= 0.65
+        log("Milestone 5 Spectral Differencing & Otsu", "PASS", f"Spectral diff clamped, Otsu threshold: {otsu_th:.4f}")
+
+        # 3. Ground Truth Synthetic Construction Detection on Tile 1
+        tile1_before = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20230115_96ed9480" / "tile_0001.tif"
+        tile1_after = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20241222_7acad713" / "tile_0001.tif"
+        if tile1_before.exists() and tile1_after.exists():
+            detector = BaselineChangeDetector(project_root=PROJECT_ROOT)
+            res1 = detector.detect_change(tile1_before, tile1_after, threshold=0.15, min_pixels=10, apply_morphology=True)
+            assert res1["changed_pixels"] == 4800
+            assert res1["change_type"] == "construction"
+            assert res1["index_deltas_mean"]["delta_brightness"] > 0.5
+            assert res1["index_deltas_mean"]["delta_ndvi"] < -0.3
+            log(
+                "Milestone 5 Ground Truth Construction",
+                "PASS",
+                f"Detected {res1['changed_pixels']} px (Ground Truth 4800 px), type: {res1['change_type']}",
+            )
+
+        # 4. Negative Control on Tile 0
+        tile0_before = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20230115_96ed9480" / "tile_0000.tif"
+        tile0_after = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20241222_7acad713" / "tile_0000.tif"
+        if tile0_before.exists() and tile0_after.exists():
+            res0 = detector.detect_change(tile0_before, tile0_after, threshold=0.15, min_pixels=10, apply_morphology=True)
+            assert res0["changed_pixels"] == 0
+            assert res0["change_type"] == "no_change"
+            log("Milestone 5 Negative Control", "PASS", "Tile 0 zero false positives (0 px changed)")
+
+        # 5. Change Detection Service End-to-End
+        with ChangeDetectionService(project_root=PROJECT_ROOT) as service:
+            req = ChangeDetectionRequest(
+                before_tile_id="scn_sentinel-2_20230115_96ed9480_t0001",
+                after_tile_id="scn_sentinel-2_20241222_7acad713_t0001",
+                threshold=0.15,
+            )
+            res = service.detect_tile_pair(req)
+            assert res.change_id.startswith("chg_")
+            assert res.metrics.changed_pixels == 4800
+            assert res.before.tile_id == req.before_tile_id
+            assert res.after.tile_id == req.after_tile_id
+            assert res.execution_trace["total_ms"] > 0
+            log(
+                "Milestone 5 Change Detection Service",
+                "PASS",
+                f"Change ID: {res.change_id}, Latency: {res.execution_trace['total_ms']:.1f}ms",
+            )
+
+        # 6. REST API Endpoints
+        app = create_app()
+        client = TestClient(app)
+        api_payload = {
+            "before_tile_id": "scn_sentinel-2_20230115_96ed9480_t0001",
+            "after_tile_id": "scn_sentinel-2_20241222_7acad713_t0001",
+            "threshold": 0.15,
+        }
+        api_res = client.post("/api/v1/change/detect", json=api_payload)
+        assert api_res.status_code == 200
+        change_data = api_res.json()
+        assert change_data["metrics"]["change_type"] == "construction"
+        assert change_data["metrics"]["changed_pixels"] == 4800
+
+        # Verify mask endpoint
+        mask_url = change_data["mask_url"]
+        mask_res = client.get(mask_url)
+        assert mask_res.status_code == 200
+        assert mask_res.headers["content-type"] == "image/png"
+        log("Milestone 5 REST API Endpoints", "PASS", "POST /change/detect & GET /change/mask/{id} verified 200 OK")
+
+        return True
+    except Exception as e:
+        log("Milestone 5 Change Detection", "FAIL", str(e))
+        return False
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1, 2, 3 & 4 VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1, 2, 3, 4 & 5 VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -289,11 +391,12 @@ def main():
         verify_ingestion_pipeline(),
         verify_database_catalog(),
         verify_baseline_retrieval(),
+        verify_change_detection(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1, 2, 3 & 4 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1, 2, 3, 4 & 5 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")

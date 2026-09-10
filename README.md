@@ -252,7 +252,112 @@ curl -X POST "http://localhost:8000/api/v1/search/baseline" \
 
 ---
 
-## 10. Offline-First Principles
+## 10. Baseline Change Detection Pipeline (Milestone 5)
+
+Deterministic temporal change detection comparing bitemporal satellite imagery pairs using normalized Euclidean spectral distance, index deltas ($\Delta \text{NDVI}, \Delta \text{NDWI}, \Delta \text{Brightness}$), adaptive Otsu thresholding, pure-NumPy morphological noise filtering, and heuristic physical taxonomy classification.
+
+### 10.1 Change Detection via Command-Line Interface (CLI)
+Analyze single tile pairs or batch-evaluate full scenes:
+```powershell
+# Detect change on a specific tile index between two scenes
+.\apps\backend\.venv\Scripts\python scripts/detect_change.py `
+  --before-scene scn_sentinel-2_20230115_96ed9480 `
+  --after-scene scn_sentinel-2_20241222_7acad713 `
+  --tile-index 1
+
+# Detect change directly using raw GeoTIFF paths with custom mask output
+.\apps\backend\.venv\Scripts\python scripts/detect_change.py `
+  --before-tile-path data/processed/scn_sentinel-2_20230115_96ed9480/tile_0001.tif `
+  --after-tile-path data/processed/scn_sentinel-2_20241222_7acad713/tile_0001.tif `
+  --threshold 0.15 `
+  --save-mask data/processed/changes/sample_mask.png
+
+# Batch-evaluate all overlapping tiles between two scenes
+.\apps\backend\.venv\Scripts\python scripts/detect_change.py `
+  --before-scene scn_sentinel-2_20230115_96ed9480 `
+  --after-scene scn_sentinel-2_20241222_7acad713 `
+  --all-tiles `
+  --min-change-percent 1.0
+```
+
+### 10.2 Change Detection via REST API
+
+#### Single Tile Pair Detection
+```bash
+curl -X POST "http://localhost:8000/api/v1/change/detect" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "before_tile_id": "scn_sentinel-2_20230115_96ed9480_t0001",
+    "after_tile_id": "scn_sentinel-2_20241222_7acad713_t0001",
+    "threshold": 0.15,
+    "apply_morphology": true,
+    "min_component_pixels": 10
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "change_id": "chg_3c44ca726754",
+  "before": {
+    "tile_id": "scn_sentinel-2_20230115_96ed9480_t0001",
+    "scene_id": "scn_sentinel-2_20230115_96ed9480",
+    "acquired_at": "2023-01-15T10:30:00",
+    "checksum": "3b2f81..."
+  },
+  "after": {
+    "tile_id": "scn_sentinel-2_20241222_7acad713_t0001",
+    "scene_id": "scn_sentinel-2_20241222_7acad713",
+    "acquired_at": "2024-12-22T10:30:00",
+    "checksum": "a9c140..."
+  },
+  "metrics": {
+    "total_pixels": 65536,
+    "valid_pixels": 65536,
+    "changed_pixels": 4800,
+    "change_percent": 7.3242,
+    "mean_magnitude": 0.7412,
+    "composite_change_score": 0.5165,
+    "change_type": "construction",
+    "effective_threshold": 0.15,
+    "applied_morphology": true,
+    "min_component_pixels": 10,
+    "index_deltas_mean": {
+      "delta_brightness": 0.8315,
+      "delta_ndvi": -0.5582,
+      "delta_ndwi": -0.0411
+    }
+  },
+  "mask_url": "/api/v1/change/mask/chg_3c44ca726754",
+  "execution_trace": {
+    "preprocess_ms": 1.8,
+    "diff_ms": 2.9,
+    "morphology_ms": 78.4,
+    "total_ms": 148.6
+  }
+}
+```
+
+#### Download Change Mask
+```bash
+curl -O "http://localhost:8000/api/v1/change/mask/chg_3c44ca726754"
+```
+
+#### Batch Scene Pair Detection
+```bash
+curl -X POST "http://localhost:8000/api/v1/change/scene-pair" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scene_id_t1": "scn_sentinel-2_20230115_96ed9480",
+    "scene_id_t2": "scn_sentinel-2_20241222_7acad713",
+    "threshold": 0.15,
+    "max_tiles": 9
+  }'
+```
+
+---
+
+## 11. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
@@ -260,6 +365,7 @@ AstraTrace enforces complete air-gap readiness:
 
 ---
 
-## 11. License
+## 12. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
+
 
