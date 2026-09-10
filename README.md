@@ -357,15 +357,145 @@ curl -X POST "http://localhost:8000/api/v1/change/scene-pair" \
 
 ---
 
-## 11. Offline-First Principles
+## 11. Advanced Embeddings & Semantic Vector Retrieval (Milestone 6)
+
+AstraTrace provides high-throughput, air-gapped semantic vector retrieval and hybrid ranking over satellite imagery. Using 512-dimensional unit-sphere embeddings and exact cosine similarity vector indexing, users can execute natural-language concept searches, image-to-image site similarity lookups, and hybrid scoring that balances semantic representation with physical multi-spectral classification.
+
+### 11.1 Embedding & Search via Command-Line Interface (CLI)
+
+#### Batch Index Catalog Tiles into Vector Store
+```powershell
+# Index all cataloged tiles into SQLite and disk-persisted vector cache (.npz)
+.\apps\backend\.venv\Scripts\python scripts/index_embeddings.py
+
+# Force re-indexing of all tiles
+.\apps\backend\.venv\Scripts\python scripts/index_embeddings.py --force
+```
+
+#### Natural-Language Semantic Search
+```powershell
+# Search using conceptual terms with hybrid ranking (alpha=0.65)
+.\apps\backend\.venv\Scripts\python scripts/semantic_search.py `
+  --query "industrial warehouse storage" `
+  --top-k 5 `
+  --alpha 0.65
+
+# Pure semantic search (alpha=1.0)
+.\apps\backend\.venv\Scripts\python scripts/semantic_search.py `
+  --query "mountain forest vegetation" `
+  --alpha 1.0
+
+# Output complete JSON payload with execution trace
+.\apps\backend\.venv\Scripts\python scripts/semantic_search.py `
+  --query "water stream river basin" `
+  --json
+```
+
+#### Image-to-Image Similarity Search ("Find Similar Sites")
+```powershell
+# Find tiles visually and semantically similar to a reference tile
+.\apps\backend\.venv\Scripts\python scripts/semantic_search.py `
+  --reference-tile-id scn_sentinel-2_20230115_96ed9480_t0000 `
+  --top-k 5
+```
+
+#### Comparative Retrieval Evaluation Benchmark
+```powershell
+# Empirically compare Baseline vs. Semantic vs. Hybrid retrieval
+.\apps\backend\.venv\Scripts\python scripts/evaluate_retrieval.py --top-k 5
+```
+
+**Measured Benchmark Results (18 Catalog Tiles, K=5):**
+```
+================================================================================
+ASTRATRACE RETRIEVAL BENCHMARK: BASELINE vs. SEMANTIC vs. HYBRID
+================================================================================
+Method       Precision@K    Recall@K     MRR        nDCG@K     Latency   
+--------------------------------------------------------------------------------
+BASELINE     0.0500         0.0833       0.1250     0.0740     86.0    ms
+SEMANTIC     0.1000         0.2083       0.2500     0.1708     5.3     ms
+HYBRID       0.0500         0.0833       0.1250     0.0740     228.7   ms
+================================================================================
+```
+
+### 11.2 Semantic Retrieval via REST API
+
+#### Natural Language Semantic Search Endpoint
+```bash
+curl -X POST "http://localhost:8000/api/v1/search/semantic" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "industrial warehouse storage",
+    "top_k": 5,
+    "hybrid_weight": 0.65,
+    "min_confidence": 0.0
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "query_id": "sem_7c2b62d854df",
+  "search_mode": "hybrid",
+  "model_info": {
+    "model_name": "AstraTrace-Offline-Baseline-v1",
+    "dimension": 512,
+    "architecture": "Deterministic-Orthogonal-Projection-512",
+    "status": "READY_OFFLINE"
+  },
+  "total_indexed": 18,
+  "returned_results": 5,
+  "results": [
+    {
+      "rank": 1,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0005",
+      "scene_id": "scn_sentinel-2_20241222_7acad713",
+      "semantic_score": 0.5556,
+      "cosine_sim": 0.1112,
+      "baseline_score": 0.4440,
+      "hybrid_score": 0.5165,
+      "bounds_wgs84": [73.5702, 18.9482, 73.6190, 18.9943],
+      "checksum": "306283fc365851d7e26da68997c48f21950e3b97669d25a8db8c6da66708bf99",
+      "sensor": "SENTINEL-2"
+    }
+  ],
+  "execution_trace": {
+    "encode_ms": 0.98,
+    "ann_ms": 0.32,
+    "filter_ms": 247.6,
+    "total_ms": 248.9
+  }
+}
+```
+
+#### Image-to-Image Similarity Search Endpoint
+```bash
+curl -X POST "http://localhost:8000/api/v1/search/similar-tiles" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference_tile_id": "scn_sentinel-2_20230115_96ed9480_t0000",
+    "top_k": 3
+  }'
+```
+
+#### Vector Store Health & Diagnostics Endpoint
+```bash
+curl -X GET "http://localhost:8000/api/v1/embeddings/status"
+```
+
+---
+
+## 12. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
 - Pre-staged datasets and local Safetensors model checkpoints.
+- Pure NumPy deterministic 512-D vector projection ensuring semantic indexing and search remain operational even in zero-dependency air-gapped environments.
 
 ---
 
-## 12. License
+## 13. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
+
 
 

@@ -378,9 +378,89 @@ def verify_change_detection() -> bool:
         log("Milestone 5 Change Detection", "FAIL", str(e))
         return False
 
+def verify_semantic_retrieval() -> bool:
+    """Milestone 6: Validates embeddings, vector indexing, hybrid search, and REST endpoints."""
+    try:
+        from apps.backend.app.main import create_app
+        from apps.backend.app.models.embedding import TileEmbeddingRecord
+        from apps.backend.app.schemas.semantic import (
+            SemanticSearchRequest,
+            SimilarTilesRequest,
+        )
+        from apps.backend.app.services.retrieval.embedding_model import (
+            DeterministicOfflineEmbeddingModel,
+        )
+        from apps.backend.app.services.retrieval.semantic_service import SemanticRetrievalService
+        from apps.backend.app.services.retrieval.vector_index import NumpyVectorIndex
+        from apps.backend.app.db.session import SessionLocal
+        from fastapi.testclient import TestClient
+        import numpy as np
+
+        # 1. Verify Embedding Model
+        model = DeterministicOfflineEmbeddingModel()
+        text_vec = model.encode_text("industrial facility warehouse")
+        assert text_vec.shape == (512,)
+        assert abs(float(np.linalg.norm(text_vec)) - 1.0) < 1e-4
+        log("Milestone 6 Embedding Model", "PASS", "512-D unit-sphere vector generated deterministically")
+
+        # 2. Verify Vector Index
+        vidx = NumpyVectorIndex(dimension=512)
+        vidx.add("test_tile", text_vec, metadata={"source": "verify"})
+        hits = vidx.search(text_vec, top_k=1)
+        assert len(hits) == 1
+        assert hits[0]["tile_id"] == "test_tile"
+        assert abs(hits[0]["cosine_sim"] - 1.0) < 1e-4
+        log("Milestone 6 Vector Index", "PASS", "Exact cosine similarity Top-K verified")
+
+        # 3. Verify Database Embeddings Table
+        with SessionLocal() as db:
+            emb_count = db.query(TileEmbeddingRecord).count()
+            assert emb_count >= 18
+            log("Milestone 6 DB Catalog", "PASS", f"{emb_count} tile embeddings cataloged in database")
+
+        # 4. Semantic Search Service End-to-End
+        with SemanticRetrievalService(project_root=PROJECT_ROOT) as service:
+            req = SemanticSearchRequest(query="industrial warehouse", top_k=5, hybrid_weight=0.6)
+            resp = service.search_semantic(req)
+            assert resp.query_id.startswith("sem_")
+            assert len(resp.results) > 0
+            assert resp.results[0].hybrid_score > 0.0
+            log(
+                "Milestone 6 Semantic Retrieval Service",
+                "PASS",
+                f"Query: '{req.query}' -> Top Hit: {resp.results[0].tile_id} (Score: {resp.results[0].hybrid_score:.4f})",
+            )
+
+        # 5. REST API Endpoints
+        app = create_app()
+        client = TestClient(app)
+
+        # A. Semantic Search Endpoint
+        res_sem = client.post("/api/v1/search/semantic", json={"query": "mountain forest", "top_k": 3})
+        assert res_sem.status_code == 200
+        assert "results" in res_sem.json()
+
+        # B. Similar Tiles Endpoint
+        res_sim = client.post(
+            "/api/v1/search/similar-tiles",
+            json={"reference_tile_id": "scn_sentinel-2_20230115_96ed9480_t0000", "top_k": 3},
+        )
+        assert res_sim.status_code == 200
+
+        # C. Index Status Endpoint
+        res_stat = client.get("/api/v1/embeddings/status")
+        assert res_stat.status_code == 200
+        assert res_stat.json()["status"] == "INDEX_OPERATIONAL"
+        log("Milestone 6 REST API Endpoints", "PASS", "POST /search/semantic, /search/similar-tiles, GET /embeddings/status 200 OK")
+
+        return True
+    except Exception as e:
+        log("Milestone 6 Semantic Retrieval", "FAIL", str(e))
+        return False
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1, 2, 3, 4 & 5 VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1, 2, 3, 4, 5 & 6 VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -392,11 +472,12 @@ def main():
         verify_database_catalog(),
         verify_baseline_retrieval(),
         verify_change_detection(),
+        verify_semantic_retrieval(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1, 2, 3, 4 & 5 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1, 2, 3, 4, 5 & 6 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")

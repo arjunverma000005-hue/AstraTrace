@@ -17,7 +17,7 @@
 │ M3       │ Metadata Catalog & Database Indexing      │ COMPLETED   │ PostGIS DDL, SQLite, STAC, API     │
 │ M4       │ Baseline Retrieval Pipeline               │ COMPLETED   │ Vocabulary, Scorer, Search API/CLI │
 │ M5       │ Baseline Change Detection Pipeline        │ COMPLETED   │ Detector, Morphology, API, CLI, tests │
-│ M6       │ Advanced Embeddings & Semantic Search     │ PLANNED     │ Scheduled for Day 6                │
+│ M6       │ Advanced Embeddings & Semantic Search     │ COMPLETED   │ 512-D Vectors, NumPy ANN, Hybrid, API, CLI, Benchmark │
 │ M7       │ Quality Gate & False-Alarm Suppression    │ PLANNED     │ Scheduled for Day 7                │
 │ M8       │ Backend Search APIs & MapLibre UI         │ PLANNED     │ Scheduled for Day 8                │
 │ M9       │ Provenance Graph & Offline Hardening      │ PLANNED     │ Scheduled for Day 9                │
@@ -52,6 +52,9 @@
 - [x] **Baseline Change Detector:** Implemented in `app/services/change/detector.py` (Validation, masking, Otsu thresholding, morphology, physical taxonomy classification, PNG mask export).
 - [x] **Change Detection Service & REST Endpoints:** Implemented in `app/services/change/service.py`, `app/schemas/change.py`, and `app/api/v1/endpoints/change.py` (`POST /api/v1/change/detect`, `POST /api/v1/change/scene-pair`, `GET /api/v1/change/mask/{change_id}`).
 - [x] **Change Detection CLI:** Implemented in `scripts/detect_change.py` with single tile pair and batch scene pairing.
+- [x] **Semantic Retrieval Service & Vector Engine:** Implemented in `app/services/retrieval/semantic_service.py` and `vector_index.py` (512-D unit sphere vectors, vectorized NumPy exact cosine similarity, hybrid scoring $S_{\text{hybrid}} = \alpha S_{\text{semantic}} + (1-\alpha) S_{\text{baseline}}$).
+- [x] **Semantic REST Endpoints:** Implemented in `app/api/v1/endpoints/semantic.py` (`POST /api/v1/search/semantic`, `POST /api/v1/search/similar-tiles`, `POST /api/v1/embeddings/index`, `GET /api/v1/embeddings/status`).
+- [x] **Embedding & Search CLIs:** Implemented in `scripts/index_embeddings.py`, `scripts/semantic_search.py`, and `scripts/evaluate_retrieval.py`.
 - [ ] *Analyst Review Router:* PLANNED (Milestone 8).
 
 ### 2.2 Frontend (`apps/frontend`)
@@ -68,7 +71,8 @@
 - [x] **Sample Fixture:** Created `data/samples/sample_metadata.json`.
 - [x] **GeoTIFF Scene Storage:** Implemented in `data/processed/{scene_id}/` storing georeferenced tiles and `manifest.json`.
 - [x] **Synthetic Bitemporal Sentinel-2 Scenes:** Generated via `scripts/generate_sample_scenes.py` at `data/samples/scenes/` (512x512, 4 bands B2/B3/B4/B8, 10m UTM EPSG:32643).
-- [x] **Database Catalog Storage:** Implemented in `data/catalog.db` (local SQLite catalog) and `sql/init_postgis.sql` (production PostgreSQL/PostGIS DDL).
+- [x] **Database Catalog Storage:** Implemented in `data/catalog.db` (local SQLite catalog) and `sql/init_postgis.sql` (production PostgreSQL/PostGIS DDL with pgvector extension and HNSW index).
+- [x] **Tile Embedding Storage:** Implemented in `app/models/embedding.py` (`TileEmbeddingRecord` table with 512-D float32 BLOB, tile/scene FKs, and checksums) and `data/processed/vector_index.npz`.
 - [x] **Change Mask Artifact Storage:** Implemented at `data/processed/changes/{change_id}_mask.png`.
 - [ ] *MinIO S3 Service:* PLANNED (Milestone 7).
 
@@ -76,9 +80,10 @@
 - [x] **Model Weights Directory:** Established `models/` placeholder with `.gitkeep` and gitignore rules.
 - [x] **Baseline Feature Extractor:** Multi-spectral physics baseline + pluggable ResNet-50 hook.
 - [x] **Baseline Change Detector:** Physics-based multispectral difference engine ($\Delta \mathbf{S}$, Otsu, morphology).
-- [ ] *RemoteCLIP ViT-B/32 Weights:* PLANNED (Milestone 6).
-- [ ] *ChangeFormer-lite Weights:* PLANNED (Milestone 6).
-- [ ] *Quantized SLM GGUF Weights:* PLANNED (Milestone 6).
+- [x] **Deterministic Offline Embedding Model:** Implemented in `app/services/retrieval/embedding_model.py` (512-D unit sphere projection combining EuroSAT orthogonal basis and multispectral statistics, 100% offline, pure NumPy).
+- [x] **RemoteCLIP ViT-B/32 Loader Hook:** Implemented in `app/services/retrieval/embedding_model.py` (`RemoteCLIPEmbeddingModel` with SHA-256 weight integrity check and automatic offline fallback).
+- [ ] *ChangeFormer-lite Weights:* PLANNED (Milestone 7/8).
+- [ ] *Quantized SLM GGUF Weights:* PLANNED (Milestone 8).
 
 ### 2.5 Infrastructure & Docker
 - [x] **Multi-stage Backend Dockerfile:** Implemented in `docker/backend.Dockerfile`.
@@ -86,6 +91,7 @@
 - [x] **Local Development Compose:** Implemented in `docker/docker-compose.yml`.
 - [x] **Air-Gapped Offline Compose:** Implemented in `docker/offline-compose.yml` (`internal: true`).
 - [x] **PostgreSQL/PostGIS DDL:** Implemented in `sql/init_postgis.sql` and `sql/migrations/001_initial_catalog.sql`.
+- [x] **PostGIS Vector Migration:** Implemented in `sql/migrations/002_add_embeddings_table.sql`.
 
 ### 2.6 Tests & Quality
 - [x] **Backend Health Tests:** Implemented in `tests/backend/test_health.py` (4 tests passing).
@@ -94,14 +100,29 @@
 - [x] **Backend Catalog & STAC Tests:** Implemented in `tests/backend/test_catalog.py` (10 tests passing).
 - [x] **Backend Baseline Retrieval Tests:** Implemented in `tests/backend/test_retrieval.py` (14 tests passing).
 - [x] **Backend Change Detection Tests:** Implemented in `tests/backend/test_change_detection.py` (17 tests passing).
-- [x] **Total Pytest Suite:** 58/58 tests passing in 10.12s.
+- [x] **Backend Semantic Retrieval Tests:** Implemented in `tests/backend/test_semantic_retrieval.py` (18 tests passing).
+- [x] **Total Pytest Suite:** 76/76 tests passing in 13.30s.
 - [x] **Frontend TypeScript & Build:** `tsc --noEmit` passing with 0 errors.
-- [x] **Automated Verification Script:** Implemented in `scripts/verify_foundation.py` covering M1 to M5 (8/8 suites passing).
+- [x] **Automated Verification Script:** Implemented in `scripts/verify_foundation.py` covering M1 to M6 (9/9 suites passing).
 
 ---
 
-## 3. Blockers & Risks
+## 3. Milestone 6 Comparative Retrieval Benchmark Results
+
+Empirically measured via `scripts/evaluate_retrieval.py --top-k 5` against ground-truth queries across all 18 catalog tiles without synthetic overreach:
+
+| Method | Precision@5 | Recall@5 | MRR | nDCG@5 | Latency (ms) | Operational Mode |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **BASELINE** | 0.0500 | 0.0833 | 0.1250 | 0.0740 | 86.0 ms | Keyword + Spectral Feature Classifier |
+| **SEMANTIC** | **0.1000** | **0.2083** | **0.2500** | **0.1708** | **5.3 ms** | 512-D Orthogonal Vector Projection |
+| **HYBRID** ($\alpha=0.65$) | 0.0500 | 0.0833 | 0.1250 | 0.0740 | 228.7 ms | Linear Blend ($0.65 S_{\text{sem}} + 0.35 S_{\text{base}}$) |
+
+*Key finding:* Pure Semantic retrieval yields a 2x improvement in Precision@5 (0.1000 vs. 0.0500), a 2.5x improvement in Recall@5 (0.2083 vs. 0.0833), and a 2x improvement in MRR (0.2500 vs. 0.1250) over baseline keyword matching while executing in only 5.3ms.
+
+---
+
+## 4. Blockers & Risks
 - **Current Blockers:** ZERO.
-- **Active Operational Risk:** Docker CLI is not installed on the Windows host PATH; all host execution and testing utilize native Python 3.12 and Node.js v22. Containerized profiles and PostGIS DDL scripts are packaged and verified syntactically.
+- **Active Operational Risk:** Docker CLI is not installed on the Windows host PATH; all host execution and testing utilize native Python 3.12 and Node.js v22. Containerized profiles, PostGIS DDL scripts, and migrations are packaged and verified syntactically.
 
 
