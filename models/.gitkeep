@@ -1,0 +1,2 @@
+# Local model weights directory (Safetensors / GGUF)
+# Note: Model weights are strictly gitignored and verified via SHA-256 manifests.

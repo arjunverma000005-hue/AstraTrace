@@ -1,0 +1,41 @@
+# AstraTrace — Architecture Traceability Matrix
+**Project:** AstraTrace  
+**SIH Problem ID:** SIH26227  
+**Document Type:** Component-to-Code Traceability Map  
+**Status:** BASELINED (Milestone 1)
+
+---
+
+## 1. Traceability Mapping
+
+```
+┌──────────────────────────────────────┬───────────────────────────────────┬──────────────────┬───────────┐
+│ Approved Architecture Component      │ Repository Location               │ Current Status   │ Milestone │
+├──────────────────────────────────────┼───────────────────────────────────┼──────────────────┼───────────┤
+│ FastAPI Backend Core                 │ apps/backend/app/main.py          │ Foundation Ready │ M1        │
+│ Pydantic Configuration Management    │ apps/backend/app/config.py        │ Foundation Ready │ M1        │
+│ Structured JSON Logging              │ apps/backend/app/core/logging.py  │ Foundation Ready │ M1        │
+│ Domain Error Handlers (RFC 7807)     │ apps/backend/app/core/errors.py   │ Foundation Ready │ M1        │
+│ Health & Status Endpoints            │ apps/backend/app/api/v1/router.py │ Implemented      │ M1        │
+│ React + TypeScript Shell             │ apps/frontend/src/App.tsx         │ Foundation Ready │ M1        │
+│ Typed API Client                     │ apps/frontend/src/api/client.ts   │ Implemented      │ M1        │
+│ Live Health Inspection Card          │ apps/frontend/src/components/     │ Implemented      │ M1        │
+│ UI Error Boundary                    │ apps/frontend/src/components/     │ Implemented      │ M1        │
+│ Docker Containerization              │ docker/                           │ Implemented      │ M1        │
+│ Air-Gapped Offline Profile           │ docker/offline-compose.yml        │ Implemented      │ M1        │
+│ Backend Automated Unit Tests         │ tests/backend/                    │ Implemented      │ M1        │
+│ End-to-End Foundation Verifier       │ scripts/verify_foundation.py      │ Implemented      │ M1        │
+│ Raster Preprocessing (GDAL/Rasterio) │ scripts/ingest_scene.py           │ Planned          │ M2        │
+│ PostgreSQL / PostGIS STAC Catalog    │ apps/backend/app/models/          │ Planned          │ M3        │
+│ pgvector HNSW Vector Store           │ apps/backend/app/models/          │ Planned          │ M3        │
+│ Baseline Image Differencing & NDVI   │ apps/backend/app/services/change  │ Planned          │ M5        │
+│ RemoteCLIP Semantic Retrieval        │ apps/backend/app/services/embed   │ Planned          │ M6        │
+│ ChangeFormer-lite Bitemporal Model   │ apps/backend/app/services/change  │ Planned          │ M6        │
+│ Quality Gate & False-Alarm Filter    │ apps/backend/app/services/quality │ Planned          │ M7        │
+│ Multisensor Optical/SAR Agreement    │ apps/backend/app/services/fusion  │ Planned          │ M8        │
+│ MapLibre GL JS Bitemporal Viewer     │ apps/frontend/src/map/            │ Planned          │ M8        │
+│ Analyst Review & Feedback Store      │ apps/backend/app/api/v1/reviews.py│ Planned          │ M8        │
+│ Append-Only Merkle Audit Trail       │ apps/backend/app/models/audit.py  │ Planned          │ M9        │
+│ Automated Benchmark Suite            │ scripts/run_evaluation.py         │ Planned          │ M10       │
+└──────────────────────────────────────┴───────────────────────────────────┴──────────────────┴───────────┘
+```

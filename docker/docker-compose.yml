@@ -1,0 +1,35 @@
+# AstraTrace Local Development Multi-Container Compose
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - OFFLINE_MODE=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models:ro
+    networks:
+      - astratrace_net
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - astratrace_net
+
+networks:
+  astratrace_net:
+    driver: bridge

@@ -1,0 +1,37 @@
+# AstraTrace Air-Gapped Offline Evaluation Profile
+# Invariant: internal: true disables default gateway and external network egress
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - OFFLINE_MODE=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - ../data:/app/data:ro
+      - ../models:/app/models:ro
+    networks:
+      - airgap_mesh
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - airgap_mesh
+
+networks:
+  airgap_mesh:
+    driver: bridge
+    internal: true # Enforces air-gap: drops all outbound internet routing

@@ -1,0 +1,16 @@
+{
+  "description": "AstraTrace Foundation Sample Metadata Fixture",
+  "version": "0.1.0",
+  "samples": [
+    {
+      "id": "scn_sample_s2_001",
+      "provider": "Copernicus",
+      "collection": "Sentinel-2 L2A",
+      "sensor": "SENTINEL-2",
+      "acquired_at": "2024-01-15T10:30:00Z",
+      "bbox": [75.60, 18.90, 75.90, 19.20],
+      "cloud_cover_percentage": 2.4,
+      "format": "COG"
+    }
+  ]
+}
