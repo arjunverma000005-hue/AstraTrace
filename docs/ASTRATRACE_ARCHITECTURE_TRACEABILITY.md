@@ -23,16 +23,22 @@
 │ UI Error Boundary                    │ apps/frontend/src/components/     │ Implemented      │ M1        │
 │ Docker Containerization              │ docker/                           │ Implemented      │ M1        │
 │ Air-Gapped Offline Profile           │ docker/offline-compose.yml        │ Implemented      │ M1        │
-│ Backend Automated Unit Tests         │ tests/backend/                    │ Implemented      │ M1/M2     │
-│ End-to-End System Verifier           │ scripts/verify_foundation.py      │ Implemented      │ M1/M2     │
+│ Backend Automated Unit Tests         │ tests/backend/                    │ Implemented      │ M1/M2/M3  │
+│ End-to-End System Verifier           │ scripts/verify_foundation.py      │ Implemented      │ M1/M2/M3  │
 │ Raster Preprocessing & Tiling Engine │ apps/backend/app/services/ingest* │ Implemented      │ M2        │
 │ Ingestion Pydantic Schemas           │ apps/backend/app/schemas/ingest.py│ Implemented      │ M2        │
 │ Ingestion REST Endpoints             │ apps/backend/app/api/v1/router.py │ Implemented      │ M2        │
 │ Scene Ingestion CLI Utility          │ scripts/ingest_scene.py           │ Implemented      │ M2        │
 │ Synthetic Bitemporal Scene Generator │ scripts/generate_sample_scenes.py │ Implemented      │ M2        │
 │ Provenance Manifest Storage          │ data/processed/{scene_id}/        │ Implemented      │ M2        │
-│ PostgreSQL / PostGIS STAC Catalog    │ apps/backend/app/models/          │ Planned          │ M3        │
-│ pgvector HNSW Vector Store           │ apps/backend/app/models/          │ Planned          │ M3        │
+│ PostgreSQL / PostGIS DDL Scripts     │ sql/init_postgis.sql              │ Implemented      │ M3        │
+│ SQL Database Migrations              │ sql/migrations/001_initial*.sql   │ Implemented      │ M3        │
+│ SQLAlchemy 2.0 Engine & Models       │ apps/backend/app/models/catalog.py│ Implemented      │ M3        │
+│ Catalog Service (Spatial/Temporal)   │ apps/backend/app/services/catalog*│ Implemented      │ M3        │
+│ Catalog & STAC REST Endpoints        │ apps/backend/app/api/v1/endpoints/│ Implemented      │ M3        │
+│ Database Init CLI Utility            │ scripts/init_db.py                │ Implemented      │ M3        │
+│ Scene Cataloging CLI Utility         │ scripts/catalog_scene.py          │ Implemented      │ M3        │
+│ pgvector HNSW Vector Store           │ apps/backend/app/models/          │ Planned          │ M6        │
 │ Baseline Image Differencing & NDVI   │ apps/backend/app/services/change  │ Planned          │ M5        │
 │ RemoteCLIP Semantic Retrieval        │ apps/backend/app/services/embed   │ Planned          │ M6        │
 │ ChangeFormer-lite Bitemporal Model   │ apps/backend/app/services/change  │ Planned          │ M6        │

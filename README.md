@@ -146,7 +146,44 @@ curl "http://localhost:8000/api/v1/ingest/manifest/scn_sentinel-2_20230115_96ed9
 
 ---
 
-## 8. Offline-First Principles
+## 8. Metadata Catalog & STAC Indexing (Milestone 3)
+
+### 8.1 Initialize Database Schema
+Initializes PostgreSQL/PostGIS (or offline SQLite fallback) tables and spatial/temporal indexes:
+```powershell
+.\apps\backend\.venv\Scripts\python scripts/init_db.py
+```
+
+### 8.2 Register Ingested Manifest into Catalog via CLI
+Consumes Milestone 2 manifests into the database with idempotent duplicate suppression:
+```powershell
+.\apps\backend\.venv\Scripts\python scripts/catalog_scene.py --manifest data/processed/scn_sentinel-2_20230115_96ed9480/manifest.json
+```
+
+### 8.3 Query Catalog Scenes via API
+```bash
+curl "http://localhost:8000/api/v1/catalog/scenes?sensor=SENTINEL-2"
+```
+
+### 8.4 Spatial Bounding Box & Temporal Tile Search
+```bash
+curl -X POST "http://localhost:8000/api/v1/catalog/tiles/search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bbox": [73.57, 18.94, 73.63, 18.99],
+    "sensor": "SENTINEL-2",
+    "limit": 20
+  }'
+```
+
+### 8.5 Access STAC-Compatible Metadata
+- STAC Root Catalog: `GET http://localhost:8000/api/v1/stac`
+- STAC Collections: `GET http://localhost:8000/api/v1/stac/collections`
+- STAC Items: `GET http://localhost:8000/api/v1/stac/collections/demo_archive/items`
+
+---
+
+## 9. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
@@ -154,5 +191,6 @@ AstraTrace enforces complete air-gap readiness:
 
 ---
 
-## 8. License
+## 10. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
+

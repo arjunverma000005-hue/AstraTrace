@@ -1,12 +1,16 @@
 """API v1 router for AstraTrace."""
 from datetime import datetime, timezone
 from fastapi import APIRouter
+from apps.backend.app.api.v1.endpoints.catalog import router as catalog_router
+from apps.backend.app.api.v1.endpoints.stac import router as stac_router
 from apps.backend.app.config import settings
 from apps.backend.app.schemas.health import HealthResponse, SystemStatusResponse
 from apps.backend.app.schemas.ingest import IngestRequest, IngestResponse
 from apps.backend.app.services.ingestion import IngestionService
 
 router = APIRouter()
+router.include_router(catalog_router)
+router.include_router(stac_router)
 
 
 @router.get(
@@ -42,7 +46,7 @@ async def system_status() -> SystemStatusResponse:
         offline_mode=settings.offline_mode,
         services={
             "api": "healthy",
-            "metadata_catalog": "staged",
+            "metadata_catalog": "operational",
             "vector_index": "staged",
             "storage": "local_filesystem",
         },

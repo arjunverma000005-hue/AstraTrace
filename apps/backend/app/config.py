@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     data_dir: str = "data"
     models_dir: str = "models"
 
-    # Database & Services (Optional for Milestone 1)
-    database_url: str = "postgresql+psycopg://astratrace:astratrace_dev_pw@localhost:5432/astratrace"
+    # Database Configuration (PostgreSQL in production / Docker, SQLite fallback for offline local testing)
+    database_url: str = "sqlite:///./data/catalog.db"
     redis_url: str = "redis://localhost:6379/0"
 
     @field_validator("cors_origins", mode="before")

@@ -163,9 +163,55 @@ def verify_ingestion_pipeline() -> bool:
         log("Milestone 2 Ingestion Verification", "FAIL", str(e))
         return False
 
+def verify_database_catalog() -> bool:
+    """Verifies Milestone 3 Database Schema, Manifest Registration, Spatial Queries, and STAC."""
+    try:
+        from fastapi.testclient import TestClient
+        from apps.backend.app.db.session import init_db
+        from apps.backend.app.main import create_app
+        from apps.backend.app.services.catalog import CatalogService
+        from apps.backend.app.schemas.catalog import TileSearchRequest
+
+        # 1. Initialize DB tables
+        init_db()
+        log("Milestone 3 DB Initialization", "PASS", "scenes and tiles tables verified")
+
+        # 2. Register manifest into catalog
+        sample_manifest = "data/processed/scn_sentinel-2_20230115_96ed9480/manifest.json"
+        with CatalogService(project_root=PROJECT_ROOT) as service:
+            reg_res = service.register_manifest(sample_manifest)
+            assert reg_res.status in ("REGISTERED", "SKIPPED_DUPLICATE")
+            assert reg_res.tiles_registered == 9
+            log("Milestone 3 Manifest Cataloging", "PASS", f"Status: {reg_res.status}, Tiles: {reg_res.tiles_registered}")
+
+            # 3. Spatial and temporal queries
+            req = TileSearchRequest(bbox=[73.57, 18.94, 73.63, 18.99])
+            total, tiles = service.query_tiles(req)
+            assert total >= 9
+            log("Milestone 3 Spatial BBox Query", "PASS", f"Found {total} tiles overlapping Western Ghats bbox")
+
+            # 4. STAC Item verification
+            stac_item = service.get_stac_item(reg_res.scene_id)
+            assert stac_item["type"] == "Feature"
+            assert stac_item["id"] == reg_res.scene_id
+            log("Milestone 3 STAC Item Serialization", "PASS", f"Item ID: {stac_item['id']}, Assets: {len(stac_item['assets'])}")
+
+        # 5. Verify REST API endpoints
+        app = create_app()
+        client = TestClient(app)
+        api_res = client.get("/api/v1/stac/collections")
+        assert api_res.status_code == 200
+        assert len(api_res.json()["collections"]) >= 1
+        log("Milestone 3 STAC API Endpoint", "PASS", "GET /api/v1/stac/collections returned 200 OK")
+
+        return True
+    except Exception as e:
+        log("Milestone 3 Database Verification", "FAIL", str(e))
+        return False
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1 & 2 FOUNDATION & INGESTION VERIFICATION")
+    print("ASTRATRACE MILESTONE 1, 2 & 3 VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -174,11 +220,12 @@ def main():
         verify_backend_health(),
         verify_sample_metadata(),
         verify_ingestion_pipeline(),
+        verify_database_catalog(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1 & 2 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1, 2 & 3 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")
