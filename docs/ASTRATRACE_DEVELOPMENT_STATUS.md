@@ -12,10 +12,10 @@
 ┌──────────┬───────────────────────────────────────────┬─────────────┬────────────────────────────────────┐
 │| Milestone│ Description                               │ Status      │ Completion Evidence / Deliverables │
 ├──────────┼───────────────────────────────────────────┼─────────────┼────────────────────────────────────┤
-│| M1       │ Foundation & Repository Setup             │ COMPLETED   │ apps/backend, apps/frontend, tests │
+│ M1       │ Foundation & Repository Setup             │ COMPLETED   │ apps/backend, apps/frontend, tests │
 │ M2       │ Data Ingestion & Preprocessing            │ COMPLETED   │ IngestionService, CLI, API, tests  │
 │ M3       │ Metadata Catalog & Database Indexing      │ COMPLETED   │ PostGIS DDL, SQLite, STAC, API     │
-│ M4       │ Baseline Retrieval Pipeline               │ PLANNED     │ Scheduled for Day 4                │
+│ M4       │ Baseline Retrieval Pipeline               │ COMPLETED   │ Vocabulary, Scorer, Search API/CLI │
 │ M5       │ Baseline Change Detection Pipeline        │ PLANNED     │ Scheduled for Day 5                │
 │ M6       │ Advanced Embeddings & Semantic Search     │ PLANNED     │ Scheduled for Day 6                │
 │ M7       │ Quality Gate & False-Alarm Suppression    │ PLANNED     │ Scheduled for Day 7                │
@@ -43,7 +43,10 @@
 - [x] **Catalog Schemas:** Implemented in `app/schemas/catalog.py` and `app/schemas/stac.py` (STAC Collections and Items).
 - [x] **Catalog Service:** Implemented in `app/services/catalog.py` (Idempotent manifest registration, spatial bounding box queries, temporal queries, STAC serialization).
 - [x] **Catalog & STAC Endpoints:** Implemented in `app/api/v1/endpoints/catalog.py` and `app/api/v1/endpoints/stac.py`.
-- [ ] *Hybrid Search Router:* PLANNED (Milestone 4/6).
+- [x] **Baseline Search Router & Service:** Implemented in `app/services/retrieval/` and `app/api/v1/endpoints/search.py` serving `POST /api/v1/search/baseline`.
+- [x] **EuroSAT Controlled Vocabulary:** Implemented in `app/services/retrieval/vocabulary.py` with synset resolution.
+- [x] **Tile Feature Classifier & Scorer:** Implemented in `app/services/retrieval/baseline_classifier.py` and `baseline_scorer.py` (NDVI, NDWI, Brightness, Texture, IoU, Temporal recency).
+- [x] **Baseline Search CLI:** Implemented in `scripts/baseline_search.py`.
 - [ ] *Analyst Review Router:* PLANNED (Milestone 8).
 
 ### 2.2 Frontend (`apps/frontend`)
@@ -65,6 +68,7 @@
 
 ### 2.4 Models & AI/ML
 - [x] **Model Weights Directory:** Established `models/` placeholder with `.gitkeep` and gitignore rules.
+- [x] **Baseline Feature Extractor:** Multi-spectral physics baseline + pluggable ResNet-50 hook.
 - [ ] *RemoteCLIP ViT-B/32 Weights:* PLANNED (Milestone 6).
 - [ ] *ChangeFormer-lite Weights:* PLANNED (Milestone 6).
 - [ ] *Quantized SLM GGUF Weights:* PLANNED (Milestone 6).
@@ -81,9 +85,10 @@
 - [x] **Backend Config Tests:** Implemented in `tests/backend/test_config.py` (3 tests passing).
 - [x] **Backend Ingestion Tests:** Implemented in `tests/backend/test_ingestion.py` (10 tests passing).
 - [x] **Backend Catalog & STAC Tests:** Implemented in `tests/backend/test_catalog.py` (10 tests passing).
-- [x] **Total Pytest Suite:** 27/27 tests passing in 3.49s.
-- [x] **Frontend TypeScript & Build:** `tsc --noEmit` and `npm run build` passing with 0 errors.
-- [x] **Automated Verification Script:** Implemented in `scripts/verify_foundation.py` covering M1 foundation, M2 ingestion pipeline, and M3 database catalog.
+- [x] **Backend Baseline Retrieval Tests:** Implemented in `tests/backend/test_retrieval.py` (14 tests passing).
+- [x] **Total Pytest Suite:** 41/41 tests passing in 6.76s.
+- [x] **Frontend TypeScript & Build:** `tsc --noEmit` passing with 0 errors.
+- [x] **Automated Verification Script:** Implemented in `scripts/verify_foundation.py` covering M1 foundation, M2 ingestion pipeline, M3 database catalog, and M4 baseline retrieval (7/7 suites passing).
 
 ---
 

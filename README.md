@@ -183,7 +183,76 @@ curl -X POST "http://localhost:8000/api/v1/catalog/tiles/search" \
 
 ---
 
-## 9. Offline-First Principles
+## 9. Baseline Retrieval Pipeline (Milestone 4)
+
+### 9.1 Search via Command-Line Interface (CLI)
+Query the offline catalog using natural language, bounding box coordinates, and temporal ranges:
+```powershell
+# Search for urban structures
+.\apps\backend\.venv\Scripts\python scripts/baseline_search.py --query "urban buildings" --top-k 5
+
+# Search with spatial bounding box and temporal filters
+.\apps\backend\.venv\Scripts\python scripts/baseline_search.py --query "roads near factories" --bbox 73.57 18.94 73.63 18.99 --top-k 5
+
+# Output raw JSON with execution trace metrics
+.\apps\backend\.venv\Scripts\python scripts/baseline_search.py --query "forest vegetation" --json
+```
+
+### 9.2 Search via REST API
+Execute multi-factor baseline searches combining SQL spatial filtering, EuroSAT synsets, and spectral feature scoring:
+```bash
+curl -X POST "http://localhost:8000/api/v1/search/baseline" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "industrial warehouse storage",
+    "bbox": [73.57, 18.94, 73.63, 18.99],
+    "date_from": "2023-01-01T00:00:00Z",
+    "date_to": "2025-01-01T00:00:00Z",
+    "top_k": 5,
+    "min_confidence": 0.2
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "query_id": "qry_e12d2e23f927",
+  "query": "industrial warehouse storage",
+  "matched_vocabulary": {"Industrial": 0.85, "Residential": 0.15},
+  "is_out_of_vocabulary": false,
+  "total_candidates": 18,
+  "returned_results": 5,
+  "results": [
+    {
+      "rank": 1,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0005",
+      "baseline_score": 0.5420,
+      "score_breakdown": {
+        "class_score": 0.245,
+        "spatial_score": 1.0,
+        "temporal_score": 0.98
+      },
+      "top_class": "Industrial",
+      "top_class_confidence": 0.32,
+      "matched_classes": ["Industrial"],
+      "bounds_wgs84": [73.57, 18.94, 73.63, 18.99],
+      "geometry": {"type": "Polygon", "coordinates": [...]},
+      "checksum": "...",
+      "acquired_at": "2024-12-22T10:30:00"
+    }
+  ],
+  "execution_trace": {
+    "query_parser_ms": 0.2,
+    "retrieval_ms": 41.1,
+    "scoring_ms": 297.7,
+    "total_ms": 339.0
+  }
+}
+```
+
+---
+
+## 10. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
@@ -191,6 +260,6 @@ AstraTrace enforces complete air-gap readiness:
 
 ---
 
-## 10. License
+## 11. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
 

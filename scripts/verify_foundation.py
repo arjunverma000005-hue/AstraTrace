@@ -209,9 +209,76 @@ def verify_database_catalog() -> bool:
         log("Milestone 3 Database Verification", "FAIL", str(e))
         return False
 
+def verify_baseline_retrieval() -> bool:
+    """Verifies Milestone 4 Baseline Retrieval Pipeline."""
+    try:
+        from apps.backend.app.main import create_app
+        from apps.backend.app.schemas.search import BaselineSearchRequest
+        from apps.backend.app.services.retrieval.baseline_classifier import TileFeatureClassifier
+        from apps.backend.app.services.retrieval.baseline_scorer import BaselineScorer
+        from apps.backend.app.services.retrieval.service import BaselineRetrievalService
+        from apps.backend.app.services.retrieval.vocabulary import ControlledVocabulary
+        from fastapi.testclient import TestClient
+
+        # 1. Controlled Vocabulary Parser
+        weights, is_oov = ControlledVocabulary.parse_query("urban buildings")
+        assert not is_oov
+        assert "Residential" in weights
+        assert "Industrial" in weights
+        assert abs(sum(weights.values()) - 1.0) < 0.05
+        log("Milestone 4 Vocabulary Parsing", "PASS", f"Synset resolution: {list(weights.keys())}")
+
+        # 2. Tile Feature Extraction and Classification
+        sample_tile = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20230115_96ed9480" / "tile_0000.tif"
+        if sample_tile.exists():
+            classifier = TileFeatureClassifier(project_root=PROJECT_ROOT)
+            probs = classifier.classify_tile(sample_tile)
+            assert len(probs) == 10
+            assert abs(sum(probs.values()) - 1.0) < 0.05
+            top_c = max(probs, key=probs.get)
+            log("Milestone 4 Tile Feature Classification", "PASS", f"10-class EuroSAT probs (Top: {top_c} {probs[top_c]:.2f})")
+
+        # 3. Baseline Retrieval Service End-to-End Search
+        with BaselineRetrievalService(project_root=PROJECT_ROOT) as service:
+            req = BaselineSearchRequest(
+                query="forest vegetation",
+                bbox=(73.57, 18.94, 73.63, 18.99),
+                top_k=5,
+            )
+            resp = service.search(req)
+            assert resp.query_id.startswith("qry_")
+            assert resp.total_candidates >= 9
+            assert len(resp.results) > 0
+            assert resp.execution_trace["total_ms"] < 500.0
+            log(
+                "Milestone 4 Baseline Search Service",
+                "PASS",
+                f"Candidates: {resp.total_candidates}, Top Score: {resp.results[0].baseline_score:.4f}, Latency: {resp.execution_trace['total_ms']:.1f}ms",
+            )
+
+        # 4. REST API Endpoint POST /api/v1/search/baseline
+        app = create_app()
+        client = TestClient(app)
+        api_payload = {
+            "query": "industrial warehouse",
+            "bbox": [73.57, 18.94, 73.63, 18.99],
+            "top_k": 3,
+        }
+        api_res = client.post("/api/v1/search/baseline", json=api_payload)
+        assert api_res.status_code == 200
+        res_data = api_res.json()
+        assert "Industrial" in res_data["matched_vocabulary"]
+        assert len(res_data["results"]) <= 3
+        log("Milestone 4 REST Search Endpoint", "PASS", "POST /api/v1/search/baseline returned 200 OK")
+
+        return True
+    except Exception as e:
+        log("Milestone 4 Baseline Retrieval", "FAIL", str(e))
+        return False
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1, 2 & 3 VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1, 2, 3 & 4 VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -221,11 +288,12 @@ def main():
         verify_sample_metadata(),
         verify_ingestion_pipeline(),
         verify_database_catalog(),
+        verify_baseline_retrieval(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1, 2 & 3 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1, 2, 3 & 4 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")
