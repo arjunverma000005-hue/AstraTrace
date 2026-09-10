@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from apps.backend.app.config import settings
 from apps.backend.app.db.session import engine, init_db
-from apps.backend.app.models import SceneRecord, TileRecord  # noqa: F401
+from apps.backend.app.models import SceneRecord, TileRecord, TileEmbeddingRecord, AnalystReviewRecord  # noqa: F401
 
 
 def main() -> int:
@@ -26,13 +26,17 @@ def main() -> int:
     try:
         init_db(engine)
         print(" Tables Initialized:")
-        print("   - scenes (SceneRecord)")
-        print("   - tiles  (TileRecord)")
+        print("   - scenes           (SceneRecord)")
+        print("   - tiles            (TileRecord)")
+        print("   - tile_embeddings  (TileEmbeddingRecord)")
+        print("   - analyst_reviews  (AnalystReviewRecord)")
         print(" Indexes Created:")
         print("   - idx_scenes_sensor_date")
         print("   - idx_scenes_spatial_bbox")
         print("   - idx_tiles_spatial_bbox")
         print("   - idx_tiles_scene_idx")
+        print("   - idx_reviews_target")
+        print("   - idx_reviews_decision")
         print("=" * 60)
         print(" Database initialization COMPLETED successfully.")
         return 0

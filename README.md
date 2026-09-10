@@ -23,14 +23,17 @@ It enables intelligence analysts to:
 ---
 
 ## 2. Current Implementation Status
-- **Current Milestone:** **Milestone 1 — Foundation & Repository Setup (COMPLETED)**
-- **Implemented in M1:**
-  - Standard monorepo layout (`apps/backend`, `apps/frontend`, `data/`, `models/`, `docker/`, `scripts/`, `tests/`).
-  - FastAPI backend entrypoint with Pydantic configuration, structured JSON logging, RFC 7807 error handling, and `/api/v1/health` + `/api/v1/status` endpoints.
-  - React 18 + TypeScript + Vite frontend dashboard shell with live health indicator, error boundary, and typed API client.
-  - Multi-stage Dockerfiles and `docker-compose.yml` / `offline-compose.yml` profiles.
-  - Automated unit test suite and end-to-end verification script (`scripts/verify_foundation.py`).
-- **Notice on Advanced Features:** Semantic retrieval (RemoteCLIP), change detection (ChangeFormer), PostGIS STAC cataloging, and multisensor fusion belong to subsequent milestones and are **NOT yet implemented in this repository**.
+- **Current Milestone:** **Milestone 8 — Search APIs, MapLibre UI & Analyst Review Queue (COMPLETED)**
+- **Completed Milestones:**
+  - **M1:** Foundation & Monorepo Setup (FastAPI, React 18, Docker, Logging).
+  - **M2:** Raster Ingestion & Tiling Engine (GeoTIFF slicing, SHA-256 lineage manifests).
+  - **M3:** Metadata Catalog & Spatial Indexing (PostGIS schema, SQLite catalog, STAC API).
+  - **M4:** Baseline Retrieval Pipeline (EuroSAT controlled vocabulary, feature classifier, baseline scorer).
+  - **M5:** Baseline Change Detection Pipeline (Bitemporal difference $\Delta \mathbf{S}$, adaptive Otsu, morphology).
+  - **M6:** Advanced Embeddings & Semantic Search (512-D unit vectors, exact cosine ANN, hybrid retrieval).
+  - **M7:** Quality Gate & False-Alarm Suppression (Optical quality detector, pair usable area, cloud/shadow suppression).
+  - **M8:** Search APIs, MapLibre UI & Review Queue (Unified multi-modal search, offline MapLibre GL JS, Evidence-First review queue & triage CLI).
+- **Upcoming:** Milestone 9 (Provenance Graph & Offline Hardening) and Milestone 10 (SIH Evaluation).
 
 ---
 
@@ -584,7 +587,67 @@ curl -X POST "http://localhost:8000/api/v1/change/detect-gated" \
 
 ---
 
-## 13. Offline-First Principles
+## 13. Operational Map UI & Analyst Review Queue
+
+Milestone 8 delivers an Evidence-First operational interface for defense intelligence analysts, connecting multi-modal search, offline map visualization, and human-in-the-loop review triage.
+
+### 13.1 Evidence-First Architecture
+Every observation candidate adheres to the 8-dimension intelligence contract:
+- **WHAT:** Surface land cover classification or detected physical change category.
+- **WHERE:** WGS84 bounding box coordinates `[min_lon, min_lat, max_lon, max_lat]`, centroid, and GeoJSON geometry.
+- **WHEN:** ISO 8601 acquisition timestamp or bitemporal baseline duration.
+- **WHICH:** Sensor platform (SENTINEL-2), scene ID, and tiled patch identifier.
+- **WHY:** Mathematical score decomposition (semantic cosine similarity, baseline spectral alignment, hybrid weights).
+- **CONFIDENCE:** Calibrated composite confidence score ($0.0 \le c \le 1.0$) modulated by the optical quality gate.
+- **EVIDENCE:** Dynamic 8-bit RGB preview thumbnail, verified change mask overlay, and usable area metrics.
+- **PROVENANCE:** Cryptographic SHA-256 tile checksum, algorithm signature, and execution trace timestamps.
+
+### 13.2 100% Offline MapLibre GL JS Visualization
+The tactical map viewer operates entirely without external internet connections:
+- Uses an embedded, self-contained dark tactical style specification (`AstraTrace-Offline-Tactical-Dark`).
+- Zero calls to Mapbox, OpenStreetMap, or external tile services.
+- Dynamically overlays candidate footprints with selection highlights and bounding box coordinates.
+- Includes a 2D interactive vector canvas fallback for low-power or non-accelerated edge terminals.
+
+### 13.3 Analyst Review Queue & Triage CLI
+Operational analysts can inspect evidence and submit triage decisions without altering underlying models:
+```bash
+# List all pending candidates in review queue
+python scripts/review_cli.py --list
+
+# Filter by decision status
+python scripts/review_cli.py --list --status CONFIRMED
+
+# Inspect evidence dossier for a specific tile or event
+python scripts/review_cli.py --inspect scn_sentinel-2_20230115_96ed9480_t0000
+
+# Submit an auditable review decision
+python scripts/review_cli.py --decide scn_sentinel-2_20230115_96ed9480_t0000 \
+  --decision CONFIRMED \
+  --analyst "analyst_hq" \
+  --notes "Clear observation confirmed by primary imagery analyst"
+
+# View complete decision audit trail
+python scripts/review_cli.py --history scn_sentinel-2_20230115_96ed9480_t0000
+```
+
+> **Operational Invariant:** Analyst review decisions are strictly recorded as immutable audit snapshots. They **never** trigger autonomous retraining, fine-tuning, or model weight modification.
+
+### 13.4 Unified Search API
+```bash
+curl -X POST "http://localhost:8000/api/v1/search/unified" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "dense forest canopy near water",
+    "search_mode": "HYBRID",
+    "min_confidence": 0.50,
+    "top_k": 5
+  }'
+```
+
+---
+
+## 14. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
@@ -593,8 +656,9 @@ AstraTrace enforces complete air-gap readiness:
 
 ---
 
-## 14. License
+## 15. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
+
 
 
 

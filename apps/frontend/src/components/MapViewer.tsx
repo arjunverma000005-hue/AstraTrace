@@ -1,0 +1,402 @@
+import React, { useEffect, useRef, useState } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { EvidenceFirstCandidate } from '../types/api';
+
+interface MapViewerProps {
+  candidates: EvidenceFirstCandidate[];
+  selectedCandidate: EvidenceFirstCandidate | null;
+  onSelectCandidate: (candidate: EvidenceFirstCandidate) => void;
+}
+
+export const MapViewer: React.FC<MapViewerProps> = ({
+  candidates,
+  selectedCandidate,
+  onSelectCandidate,
+}) => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Initialize MapLibre GL instance with 100% offline self-contained style
+  useEffect(() => {
+    if (!mapContainer.current || mapRef.current) return;
+
+    try {
+      const offlineStyle: maplibregl.StyleSpecification = {
+        version: 8,
+        name: 'AstraTrace-Offline-Tactical-Dark',
+        sources: {},
+        layers: [
+          {
+            id: 'tactical-background',
+            type: 'background',
+            paint: {
+              'background-color': '#0b1120',
+            },
+          },
+        ],
+      };
+
+      const map = new maplibregl.Map({
+        container: mapContainer.current,
+        style: offlineStyle,
+        center: [73.59, 18.96], // Default Western Ghats AOI
+        zoom: 11,
+        attributionControl: false,
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
+      map.addControl(
+        new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }),
+        'bottom-left',
+      );
+
+      map.on('load', () => {
+        setMapLoaded(true);
+      });
+
+      map.on('error', (e: any) => {
+        // Log map warnings without crashing
+        console.warn('MapLibre internal event:', e);
+      });
+
+      mapRef.current = map;
+    } catch (err: unknown) {
+      console.warn('MapLibre WebGL initialization notice:', err);
+      setMapError(err instanceof Error ? err.message : 'WebGL acceleration unavailable');
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update candidate vector layers when candidates or selection changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const sourceId = 'candidates-source';
+    const fillLayerId = 'candidates-fill';
+    const lineLayerId = 'candidates-line';
+
+    const geojson: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: candidates.map((c) => ({
+        type: 'Feature',
+        properties: {
+          candidate_id: c.candidate_id,
+          target_id: c.target_id,
+          what: c.what,
+          confidence: c.confidence,
+          review_status: c.review_status,
+          isSelected: selectedCandidate?.candidate_id === c.candidate_id ? 1 : 0,
+        },
+        geometry: c.where.geometry as GeoJSON.Geometry,
+      })),
+    };
+
+    const source = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(geojson);
+    } else {
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: geojson,
+      });
+
+      // Semi-transparent footprint fill
+      map.addLayer({
+        id: fillLayerId,
+        type: 'fill',
+        source: sourceId,
+        paint: {
+          'fill-color': [
+            'case',
+            ['==', ['get', 'review_status'], 'CONFIRMED'],
+            '#10b981', // green
+            ['==', ['get', 'review_status'], 'REJECTED'],
+            '#ef4444', // red
+            ['==', ['get', 'review_status'], 'FLAGGED_FOR_INSPECTION'],
+            '#f59e0b', // amber
+            '#3b82f6', // blue (pending)
+          ],
+          'fill-opacity': [
+            'case',
+            ['==', ['get', 'isSelected'], 1],
+            0.65,
+            0.25,
+          ],
+        },
+      });
+
+      // High-contrast footprint border
+      map.addLayer({
+        id: lineLayerId,
+        type: 'line',
+        source: sourceId,
+        paint: {
+          'line-color': [
+            'case',
+            ['==', ['get', 'isSelected'], 1],
+            '#facc15', // yellow highlight
+            '#38bdf8', // light blue
+          ],
+          'line-width': [
+            'case',
+            ['==', ['get', 'isSelected'], 1],
+            3,
+            1.5,
+          ],
+        },
+      });
+
+      // Click to select candidate
+      map.on('click', fillLayerId, (e: any) => {
+        if (e.features && e.features[0]) {
+          const cid = e.features[0].properties?.candidate_id;
+          const match = candidates.find((c) => c.candidate_id === cid);
+          if (match) onSelectCandidate(match);
+        }
+      });
+
+      map.on('mouseenter', fillLayerId, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', fillLayerId, () => {
+        map.getCanvas().style.cursor = '';
+      });
+    }
+
+    // Auto-fit to selected candidate or all candidates
+    if (selectedCandidate) {
+      const [minLon, minLat, maxLon, maxLat] = selectedCandidate.where.bbox;
+      map.fitBounds(
+        [
+          [minLon, minLat],
+          [maxLon, maxLat],
+        ],
+        { padding: 80, maxZoom: 14, duration: 800 },
+      );
+    } else if (candidates.length > 0) {
+      const allLons = candidates.flatMap((c) => [c.where.bbox[0], c.where.bbox[2]]);
+      const allLats = candidates.flatMap((c) => [c.where.bbox[1], c.where.bbox[3]]);
+      const bounds: [number, number, number, number] = [
+        Math.min(...allLons),
+        Math.min(...allLats),
+        Math.max(...allLons),
+        Math.max(...allLats),
+      ];
+      map.fitBounds(
+        [
+          [bounds[0], bounds[1]],
+          [bounds[2], bounds[3]],
+        ],
+        { padding: 50, maxZoom: 13, duration: 800 },
+      );
+    }
+  }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate]);
+
+  return (
+    <div style={styles.container}>
+      {/* Map Header Overlay */}
+      <div style={styles.overlayBar}>
+        <div style={styles.aoiBadge}>
+          <span style={styles.dot} />
+          <span>AOI: Western Ghats, MH (EPSG:32643 / EPSG:4326)</span>
+        </div>
+        <div style={styles.legend}>
+          <span style={{ ...styles.legendItem, color: '#38bdf8' }}>■ Pending</span>
+          <span style={{ ...styles.legendItem, color: '#10b981' }}>■ Confirmed</span>
+          <span style={{ ...styles.legendItem, color: '#f59e0b' }}>■ Flagged</span>
+          <span style={{ ...styles.legendItem, color: '#ef4444' }}>■ Rejected</span>
+        </div>
+      </div>
+
+      {/* MapLibre Canvas Container */}
+      <div ref={mapContainer} style={styles.mapCanvas} />
+
+      {/* Resilient Tactical Fallback if WebGL is unavailable */}
+      {mapError && (
+        <div style={styles.fallbackContainer}>
+          <div style={styles.fallbackHeader}>
+            <span style={styles.fallbackIcon}>🛰️</span>
+            <div>
+              <h4 style={styles.fallbackTitle}>Tactical 2D Vector Footprint Display</h4>
+              <span style={styles.fallbackSubtitle}>Offline Local Vector Grid</span>
+            </div>
+          </div>
+          <div style={styles.gridContainer}>
+            {candidates.map((c) => {
+              const isSelected = selectedCandidate?.candidate_id === c.candidate_id;
+              return (
+                <div
+                  key={c.candidate_id}
+                  onClick={() => onSelectCandidate(c)}
+                  style={{
+                    ...styles.gridCard,
+                    borderColor: isSelected ? '#facc15' : '#334155',
+                    backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.15)' : '#1e293b',
+                  }}
+                >
+                  <div style={styles.gridCardHeader}>
+                    <span style={styles.rankBadge}>#{c.rank}</span>
+                    <span style={styles.confBadge}>{(c.confidence * 100).toFixed(0)}%</span>
+                  </div>
+                  <div style={styles.gridCardTitle}>{c.what}</div>
+                  <div style={styles.gridCardSub}>{c.target_id}</div>
+                  <div style={styles.gridCoords}>
+                    {c.where.centroid[1].toFixed(4)}°N, {c.where.centroid[0].toFixed(4)}°E
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    minHeight: '480px',
+    backgroundColor: '#0b1120',
+    overflow: 'hidden',
+    borderRadius: '8px',
+    border: '1px solid #1e293b',
+  },
+  mapCanvas: {
+    width: '100%',
+    height: '100%',
+    minHeight: '480px',
+  },
+  overlayBar: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    zIndex: 10,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 14px',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    backdropFilter: 'blur(8px)',
+    borderRadius: '6px',
+    border: '1px solid rgba(51, 65, 85, 0.8)',
+    pointerEvents: 'none',
+  },
+  aoiBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    color: '#94a3b8',
+    letterSpacing: '0.04em',
+  },
+  dot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    backgroundColor: '#10b981',
+    boxShadow: '0 0 8px #10b981',
+  },
+  legend: {
+    display: 'flex',
+    gap: '12px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+  },
+  legendItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  fallbackContainer: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: '#0f172a',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    overflowY: 'auto',
+  },
+  fallbackHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    borderBottom: '1px solid #334155',
+    paddingBottom: '12px',
+  },
+  fallbackIcon: {
+    fontSize: '1.8rem',
+  },
+  fallbackTitle: {
+    margin: 0,
+    fontSize: '1.05rem',
+    color: '#f8fafc',
+    letterSpacing: '0.04em',
+  },
+  fallbackSubtitle: {
+    fontSize: '0.78rem',
+    color: '#94a3b8',
+  },
+  gridContainer: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '12px',
+  },
+  gridCard: {
+    padding: '12px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  gridCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '6px',
+  },
+  rankBadge: {
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#38bdf8',
+  },
+  confBadge: {
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#10b981',
+  },
+  gridCardTitle: {
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    color: '#f1f5f9',
+    marginBottom: '2px',
+  },
+  gridCardSub: {
+    fontSize: '0.7rem',
+    fontFamily: 'monospace',
+    color: '#94a3b8',
+    marginBottom: '6px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  gridCoords: {
+    fontSize: '0.72rem',
+    color: '#64748b',
+  },
+};

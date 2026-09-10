@@ -66,3 +66,8 @@ def setup_logging(level: str = "INFO") -> None:
 
 
 logger = logging.getLogger("astratrace")
+
+
+def get_logger(name: str = "astratrace") -> logging.Logger:
+    """Returns a named logger for an AstraTrace subsystem."""
+    return logging.getLogger(name)

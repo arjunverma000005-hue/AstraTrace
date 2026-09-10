@@ -224,12 +224,16 @@ class TileRecord(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+    def to_geojson_geometry(self) -> Dict[str, Any]:
+        """Converts tile bounding box to GeoJSON Polygon geometry."""
+        return bbox_to_geojson_polygon(self.min_lon, self.min_lat, self.max_lon, self.max_lat)
+
     def to_geojson_feature(self) -> Dict[str, Any]:
         """Converts tile to GeoJSON feature."""
         return {
             "type": "Feature",
             "id": self.tile_id,
-            "geometry": bbox_to_geojson_polygon(self.min_lon, self.min_lat, self.max_lon, self.max_lat),
+            "geometry": self.to_geojson_geometry(),
             "bbox": [self.min_lon, self.min_lat, self.max_lon, self.max_lat],
             "properties": {
                 "tile_id": self.tile_id,
@@ -241,3 +245,4 @@ class TileRecord(Base):
                 "checksum": self.checksum,
             },
         }
+

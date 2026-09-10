@@ -569,9 +569,98 @@ def verify_quality_gate() -> bool:
         log("Milestone 7 Quality Gate", "FAIL", f"{type(e).__name__}: {e}")
         return False
 
+
+def verify_milestone8_search_and_review() -> bool:
+    """Verifies Milestone 8: Unified Search API, Tile Preview Generator, and Analyst Review Queue."""
+    try:
+        from fastapi.testclient import TestClient
+        from apps.backend.app.main import create_app
+        from apps.backend.app.schemas.review import ReviewDecision, TargetType
+
+        app = create_app()
+        client = TestClient(app)
+
+        # 1. Unified Search REST API (Keyword, Semantic, Spatial)
+        res_kw = client.post(
+            "/api/v1/search/unified",
+            json={"query": "Sentinel-2", "search_mode": "KEYWORD", "top_k": 5},
+        )
+        assert res_kw.status_code == 200
+        kw_data = res_kw.json()
+        assert "results" in kw_data
+        assert "execution_trace" in kw_data
+        assert len(kw_data["results"]) > 0
+
+        sample_cand = kw_data["results"][0]
+        for dim in ["what", "where", "when", "which", "why", "confidence", "quality_status", "evidence", "provenance"]:
+            assert dim in sample_cand, f"Missing Evidence-First dimension: {dim}"
+        assert "preview_url" in sample_cand["evidence"]
+        log("Milestone 8 Unified Search (Keyword)", "PASS", f"Returned {len(kw_data['results'])} candidates with all 8 Evidence-First dimensions")
+
+        # 2. Semantic Search Modality
+        res_sem = client.post(
+            "/api/v1/search/unified",
+            json={"query": "dense forest canopy", "search_mode": "SEMANTIC", "top_k": 3},
+        )
+        assert res_sem.status_code == 200
+        sem_data = res_sem.json()
+        assert sem_data["search_mode"] == "SEMANTIC"
+        assert len(sem_data["results"]) > 0
+        log("Milestone 8 Unified Search (Semantic)", "PASS", f"Returned {len(sem_data['results'])} semantic matches")
+
+        # 3. Tile Preview Generator
+        target_tile_id = sample_cand["target_id"]
+        res_prev = client.get(f"/api/v1/catalog/tiles/{target_tile_id}/preview")
+        assert res_prev.status_code == 200
+        assert res_prev.headers["content-type"] == "image/png"
+        assert res_prev.content[:8] == b"\x89PNG\r\n\x1a\n"
+        log("Milestone 8 Tile Preview Generator", "PASS", f"Generated 8-bit RGB PNG preview for {target_tile_id} ({len(res_prev.content)} bytes)")
+
+        # 4. Preview Security (Traversal Rejection)
+        res_bad = client.get("/api/v1/catalog/tiles/..%2F..%2Fsecret/preview")
+        assert res_bad.status_code in [400, 404, 422]
+        log("Milestone 8 Preview Traversal Guard", "PASS", "Rejected directory traversal tile preview request")
+
+        # 5. Analyst Review Decision & Audit Trail
+        res_dec = client.post(
+            "/api/v1/review/decision",
+            json={
+                "target_id": target_tile_id,
+                "target_type": "TILE",
+                "decision": "CONFIRMED",
+                "analyst_id": "analyst_foundation_audit",
+                "notes": "Verified clear satellite observation via foundation check",
+            },
+        )
+        assert res_dec.status_code == 201
+        dec_data = res_dec.json()
+        assert dec_data["decision"] == "CONFIRMED"
+        assert "review_id" in dec_data
+        assert "provenance_snapshot" in dec_data
+        log("Milestone 8 Analyst Review Decision", "PASS", f"Recorded review {dec_data['review_id']} for target {target_tile_id}")
+
+        # 6. Review History & Queue Aggregation
+        res_hist = client.get(f"/api/v1/review/history/{target_tile_id}")
+        assert res_hist.status_code == 200
+        assert res_hist.json()["total_reviews"] >= 1
+
+        res_q = client.get("/api/v1/review/queue?status_filter=CONFIRMED")
+        assert res_q.status_code == 200
+        q_data = res_q.json()
+        assert q_data["confirmed_count"] >= 1
+        log("Milestone 8 Review Queue & Audit Trail", "PASS", f"Queue summary: Pending={q_data['pending_count']}, Confirmed={q_data['confirmed_count']}")
+
+        return True
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        log("Milestone 8 Search & Review", "FAIL", f"{type(e).__name__}: {e}")
+        return False
+
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1, 2, 3, 4, 5, 6 & 7 VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1 - 8 COMPLETE VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -585,15 +674,18 @@ def main():
         verify_change_detection(),
         verify_semantic_retrieval(),
         verify_quality_gate(),
+        verify_milestone8_search_and_review(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1, 2, 3, 4, 5, 6 & 7 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1 through 8 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")
         sys.exit(1)
 
+
 if __name__ == "__main__":
     main()
+

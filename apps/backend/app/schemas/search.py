@@ -4,8 +4,9 @@ SIH 2026 | Problem ID: SIH26227
 Defines request contracts, tile search result structures, and execution trace metrics.
 """
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class BaselineSearchRequest(BaseModel):
@@ -93,3 +94,128 @@ class BaselineSearchResponse(BaseModel):
     returned_results: int = Field(..., description="Number of results returned after top_k and thresholding")
     results: List[BaselineTileResult] = Field(..., description="Ranked list of tile search results")
     execution_trace: Dict[str, float] = Field(..., description="Sub-millisecond latency profile (query, sql, score, total)")
+
+
+class SearchMode(str, Enum):
+    """Operational retrieval modalities supported by Unified Search."""
+    AUTO = "AUTO"
+    HYBRID = "HYBRID"
+    SEMANTIC = "SEMANTIC"
+    KEYWORD = "KEYWORD"
+    CHANGE = "CHANGE"
+
+
+class UnifiedSearchRequest(BaseModel):
+    """Unified request contract consolidating keyword, semantic, spatial, temporal, and quality filtering."""
+    query: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Search text e.g. 'industrial warehouse storage', 'vegetation near river'",
+    )
+    search_mode: SearchMode = Field(
+        default=SearchMode.AUTO,
+        description="Search modality: AUTO (default blend), HYBRID, SEMANTIC, KEYWORD, or CHANGE",
+    )
+    bbox: Optional[Tuple[float, float, float, float]] = Field(
+        default=None,
+        description="Bounding box [min_lon, min_lat, max_lon, max_lat] in EPSG:4326",
+    )
+    point: Optional[Tuple[float, float]] = Field(
+        default=None,
+        description="Single point coordinate [lon, lat] in EPSG:4326",
+    )
+    date_from: Optional[datetime] = Field(
+        default=None,
+        description="Start acquisition timestamp filter",
+    )
+    date_to: Optional[datetime] = Field(
+        default=None,
+        description="End acquisition timestamp filter",
+    )
+    sensor: Optional[str] = Field(
+        default=None,
+        description="Satellite sensor platform filter (e.g. SENTINEL-2)",
+    )
+    min_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Minimum calibrated confidence cutoff",
+    )
+    allowed_quality_statuses: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of accepted quality statuses: ['USABLE', 'DEGRADED']",
+    )
+    top_k: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of ranked results to return",
+    )
+    page: int = Field(
+        default=1,
+        ge=1,
+        description="1-based page number for pagination",
+    )
+    page_size: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Results per page",
+    )
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox(cls, v: Optional[Tuple[float, float, float, float]]):
+        if v is not None:
+            min_lon, min_lat, max_lon, max_lat = v
+            if min_lon > max_lon or min_lat > max_lat:
+                raise ValueError(f"Invalid bbox coordinates: min bounds must be <= max bounds. Got {v}")
+            if not (-180.0 <= min_lon <= 180.0 and -180.0 <= max_lon <= 180.0):
+                raise ValueError(f"Longitude coordinates out of range [-180, 180]: Got [{min_lon}, {max_lon}]")
+            if not (-90.0 <= min_lat <= 90.0 and -90.0 <= max_lat <= 90.0):
+                raise ValueError(f"Latitude coordinates out of range [-90, 90]: Got [{min_lat}, {max_lat}]")
+        return v
+
+    @model_validator(mode="after")
+    def validate_has_criterion(self):
+        if not self.query and not self.bbox and not self.point and not self.sensor:
+            raise ValueError("Search request requires at least one criterion (query, bbox, point, or sensor).")
+        return self
+
+
+class EvidenceFirstCandidate(BaseModel):
+    """Ranked observation candidate structured according to Evidence-First intelligence requirements."""
+    candidate_id: str = Field(..., description="Unique candidate identifier")
+    target_id: str = Field(..., description="Target tile or change ID")
+    target_type: str = Field(..., description="TILE or CHANGE")
+    rank: int = Field(..., description="1-based ranking position")
+
+    # 8 Evidence-First Dimensions
+    what: str = Field(..., description="WHAT: Primary classification or change detection description")
+    where: Dict[str, Any] = Field(..., description="WHERE: WGS84 bbox, centroid, and GeoJSON polygon")
+    when: Optional[str] = Field(None, description="WHEN: Acquisition timestamp or temporal baseline")
+    which: Dict[str, Any] = Field(..., description="WHICH: Sensor, scene ID, tile ID")
+    why: Dict[str, Any] = Field(..., description="WHY: Mathematical score decomposition explaining ranking")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="CONFIDENCE: Calibrated final confidence")
+    quality_status: str = Field(..., description="QUALITY: USABLE, DEGRADED, UNRELIABLE, UNCERTAIN, or INSUFFICIENT")
+    quality_flags: List[str] = Field(default_factory=list, description="Quality alert flags")
+    evidence: Dict[str, Any] = Field(..., description="EVIDENCE: Preview URLs, masks, spectral metrics")
+    provenance: Dict[str, Any] = Field(..., description="PROVENANCE: Checksums, model versions, timestamps")
+
+    # Review status
+    review_status: str = Field(default="PENDING_REVIEW", description="Current analyst triage status")
+
+
+class UnifiedSearchResponse(BaseModel):
+    """Unified search response returning Evidence-First ranked candidates and timing metrics."""
+    query_id: str = Field(..., description="Unique search execution trace ID")
+    query: Optional[str] = Field(None, description="Echoed search query")
+    search_mode: SearchMode = Field(..., description="Search modality executed")
+    total_candidates: int = Field(..., description="Total matching candidates before pagination")
+    page: int = Field(..., description="Current page number")
+    page_size: int = Field(..., description="Number of results per page")
+    total_pages: int = Field(..., description="Total pages available")
+    results: List[EvidenceFirstCandidate] = Field(..., description="Ranked list of Evidence-First candidates")
+    execution_trace: Dict[str, float] = Field(..., description="Sub-millisecond latency profile")
+
