@@ -16,6 +16,10 @@ from apps.backend.app.schemas.change import (
     ScenePairChangeRequest,
     ScenePairChangeResponse,
 )
+from apps.backend.app.schemas.quality import (
+    QualityGatedChangeRequest,
+    QualityGatedChangeResponse,
+)
 from apps.backend.app.services.change.service import ChangeDetectionService
 
 router = APIRouter(prefix="/change", tags=["change"])
@@ -60,6 +64,27 @@ def detect_scene_pair(
     return service.detect_scene_pair(request)
 
 
+@router.post(
+    "/detect-gated",
+    response_model=QualityGatedChangeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Detect Change with Quality Gate & False-Alarm Suppression",
+    description=(
+        "Executes quality assessment, baseline change detection, and false-alarm suppression. "
+        "Suppresses false alarms from clouds, shadows, and boundary artifacts, assigns explicit "
+        "uncertainty states, and returns transparent quality and confidence breakdowns."
+    ),
+)
+def detect_gated_change(
+    request: QualityGatedChangeRequest,
+    db: Session = Depends(get_db),
+) -> QualityGatedChangeResponse:
+    """Evaluates observation pair with quality gating, false-alarm suppression, and confidence calibration."""
+    from apps.backend.app.services.quality.service import QualityService
+    service = QualityService(db=db)
+    return service.detect_gated_change(request)
+
+
 @router.get(
     "/mask/{change_id}",
     summary="Download Change Mask Image",
@@ -70,7 +95,9 @@ def get_change_mask(
 ) -> FileResponse:
     """Returns the binary change mask PNG image file."""
     # Prevent path traversal in change_id
-    if not change_id.startswith("chg_") or not change_id.replace("chg_", "").isalnum():
+    valid_prefix = change_id.startswith("chg_") or change_id.startswith("qchg_")
+    clean_part = change_id.replace("chg_", "").replace("qchg_", "")
+    if not valid_prefix or not clean_part.isalnum():
         raise NotFoundError(f"Invalid change ID format: {change_id}")
 
     current = Path(__file__).resolve()
@@ -81,8 +108,15 @@ def get_change_mask(
     else:
         project_root = current.parents[4]
 
-    mask_path = project_root / "data" / "processed" / "changes" / f"{change_id}.png"
-    if not mask_path.exists() or not mask_path.is_file():
+    changes_dir = project_root / "data" / "processed" / "changes"
+    # Check possible filename patterns
+    candidates = [
+        changes_dir / f"{change_id}.png",
+        changes_dir / f"{change_id}_verified_mask.png",
+        changes_dir / f"{change_id}_mask.png",
+    ]
+    mask_path = next((p for p in candidates if p.exists() and p.is_file()), None)
+    if not mask_path:
         raise NotFoundError(f"Change mask not found for ID: {change_id}")
 
     return FileResponse(mask_path, media_type="image/png", filename=f"{change_id}_mask.png")

@@ -83,26 +83,39 @@ class BaselineChangeDetector:
 
     def detect_change(
         self,
-        t1_path_input: Union[str, Path],
-        t2_path_input: Union[str, Path],
+        t1_path_input: Union[str, Path, np.ndarray],
+        t2_path_input: Union[str, Path, np.ndarray],
         threshold: Optional[float] = None,
         min_pixels: int = 10,
         apply_morphology: bool = True,
         output_mask_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
-        """Executes end-to-end baseline change detection across two co-registered rasters."""
+        """Executes end-to-end baseline change detection across two co-registered rasters or arrays."""
         t0 = time.perf_counter()
 
         # Step 1: Preprocessing & validation
-        p1, p2 = self.validate_pair(t1_path_input, t2_path_input)
-
-        with rasterio.open(p1) as src1, rasterio.open(p2) as src2:
-            t1_data = src1.read().astype(np.float32)
-            t2_data = src2.read().astype(np.float32)
-            nodata1 = src1.nodata
-            nodata2 = src2.nodata
-            transform = src1.transform
-            crs = src1.crs.to_string() if src1.crs else "EPSG:4326"
+        if isinstance(t1_path_input, np.ndarray) and isinstance(t2_path_input, np.ndarray):
+            t1_data = t1_path_input.astype(np.float32)
+            t2_data = t2_path_input.astype(np.float32)
+            if t1_data.shape != t2_data.shape:
+                raise ValidationError(
+                    f"Dimension mismatch: T1 shape {t1_data.shape} != T2 shape {t2_data.shape}."
+                )
+            if t1_data.ndim != 3:
+                raise ValidationError(f"Expected 3D array (bands, height, width). Got ndim={t1_data.ndim}")
+            nodata1 = None
+            nodata2 = None
+            transform = None
+            crs = "EPSG:4326"
+        else:
+            p1, p2 = self.validate_pair(t1_path_input, t2_path_input)
+            with rasterio.open(p1) as src1, rasterio.open(p2) as src2:
+                t1_data = src1.read().astype(np.float32)
+                t2_data = src2.read().astype(np.float32)
+                nodata1 = src1.nodata
+                nodata2 = src2.nodata
+                transform = src1.transform
+                crs = src1.crs.to_string() if src1.crs else "EPSG:4326"
 
         bands, height, width = t1_data.shape
 
@@ -213,6 +226,7 @@ class BaselineChangeDetector:
             "effective_threshold": effective_threshold,
             "applied_morphology": apply_morphology,
             "min_component_pixels": min_pixels,
+            "change_mask": clean_mask,
             "index_deltas_mean": {
                 "delta_brightness": round(mean_d_bright, 4),
                 "delta_ndvi": round(mean_d_ndvi, 4),

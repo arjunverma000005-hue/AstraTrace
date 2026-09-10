@@ -485,7 +485,106 @@ curl -X GET "http://localhost:8000/api/v1/embeddings/status"
 
 ---
 
-## 12. Offline-First Principles
+## 12. Quality Gate & False-Alarm Suppression (Milestone 7)
+
+AstraTrace features a quality-aware decision and false-alarm suppression layer wrapping change detection and retrieval pipelines. The Quality Gate protects tactical analysts from atmospheric and boundary artifacts by strictly decoupling:
+1. **Raw Change Score:** Measured physical spectral divergence.
+2. **Evidence Quality Score:** Composite usability reflecting cloud cover, cloud shadow, saturation, and registration proxy.
+3. **Final Calibrated Confidence:** Multiplicative modulation penalizing degraded or misaligned imagery.
+
+### 12.1 Tactical Decision States
+- `QUALITY_PASSED`: High-confidence change verified across clean, mutually usable observations.
+- `QUALITY_DEGRADED`: Change detected, but quality metrics indicate atmospheric haze or minor registration jitter.
+- `QUALITY_SUPPRESSED`: Raw candidate changes were identified as spurious artifacts (cloud, shadow, boundary) and suppressed.
+- `UNCERTAIN`: Mutual usable area below operational threshold (<20%); analysis deferred with explicit escalation flag.
+- `INSUFFICIENT_DATA`: Completely cloudy, empty, or unreadable observations; change detection aborted safely.
+
+### 12.2 Quality Assessment via Command-Line Interface (CLI)
+
+#### Assess Single Tile Optical Quality
+```powershell
+# Assess optical quality signals on a cataloged tile
+.\apps\backend\.venv\Scripts\python scripts/assess_quality.py `
+  --tile-id "scn_sentinel-2_20230115_96ed9480_t0000"
+
+# Output raw structured JSON
+.\apps\backend\.venv\Scripts\python scripts/assess_quality.py `
+  --tile-id "scn_sentinel-2_20230115_96ed9480_t0000" --json
+```
+
+#### Assess Temporal Observation Pair Quality
+```powershell
+# Evaluate pair alignment, mutual usable area, and co-registration proxy
+.\apps\backend\.venv\Scripts\python scripts/assess_quality.py `
+  --pair "scn_sentinel-2_20230115_96ed9480_t0000" "scn_sentinel-2_20241222_7acad713_t0000"
+```
+
+#### Quality Gate False-Alarm Benchmark Evaluation
+```powershell
+# Run empirical benchmark comparing Baseline vs. Quality-Gated Detection
+.\apps\backend\.venv\Scripts\python scripts/evaluate_quality_gate.py
+```
+
+**Measured Benchmark Results:**
+```
+================================================================================
+ASTRATRACE BENCHMARK: BASELINE CHANGE DETECTION vs. QUALITY-GATED DETECTION
+================================================================================
+Operational Scenario                 | Baseline Px | Gated Px  | Suppressed | Decision           | Gated Conf
+--------------------------------------------------------------------------------------------------------------
+1. True Construction Change          | 4800        | 4800      | 0          | QUALITY_DEGRADED   | 0.4479    
+2. Clean Negative Control            | 0           | 0         | 0          | QUALITY_PASSED     | 0.0000    
+3. Cloud Contamination Challenge     | 6400        | 0         | 6400       | QUALITY_SUPPRESSED | 0.0000    
+4. Cloud Shadow Challenge            | 3600        | 0         | 3600       | QUALITY_SUPPRESSED | 0.0000    
+5. Insufficient Usable Area Challenge | 0           | 0         | 0          | UNCERTAIN          | 0.0000    
+==============================================================================================================
+```
+
+### 12.3 Quality Gate via REST API
+
+#### Gated Change Detection with False-Alarm Suppression
+```bash
+curl -X POST "http://localhost:8000/api/v1/change/detect-gated" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "before_tile_path": "data/processed/scn_sentinel-2_20230115_96ed9480/tile_0001.tif",
+    "after_tile_path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0001.tif",
+    "threshold": 0.15,
+    "suppress_clouds": true,
+    "suppress_shadows": true,
+    "suppress_boundaries": true
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "change_id": "qchg_7d747c8173e7",
+  "decision": "QUALITY_DEGRADED",
+  "quality_status": "DEGRADED",
+  "is_uncertain": false,
+  "raw_change_score": 0.5160,
+  "pair_quality_score": 0.8681,
+  "final_confidence": 0.4479,
+  "raw_changed_pixels": 4800,
+  "verified_changed_pixels": 4800,
+  "verified_change_percent": 7.3242,
+  "change_type": "construction",
+  "suppression_breakdown": {
+    "cloud_suppressed_pixels": 0,
+    "shadow_suppressed_pixels": 0,
+    "boundary_suppressed_pixels": 0,
+    "noise_suppressed_pixels": 0,
+    "total_suppressed_pixels": 0
+  },
+  "explanation": "Result verified with DEGRADED confidence: 4800 changed pixels (construction) detected. Marginal quality/registration (0.87) requires analyst caution.",
+  "mask_url": "/api/v1/change/mask/qchg_7d747c8173e7"
+}
+```
+
+---
+
+## 13. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
@@ -494,8 +593,9 @@ AstraTrace enforces complete air-gap readiness:
 
 ---
 
-## 13. License
+## 14. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
+
 
 
 

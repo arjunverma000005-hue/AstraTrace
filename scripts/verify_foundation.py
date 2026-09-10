@@ -458,9 +458,120 @@ def verify_semantic_retrieval() -> bool:
         log("Milestone 6 Semantic Retrieval", "FAIL", str(e))
         return False
 
+def verify_quality_gate() -> bool:
+    """Verifies Milestone 7 Quality Gate & False-Alarm Suppression Pipeline."""
+    try:
+        import numpy as np
+        from apps.backend.app.main import create_app
+        from apps.backend.app.schemas.quality import QualityDecision, QualityGatedChangeRequest, QualityStatus
+        from apps.backend.app.services.quality.pair_quality import PairQualityEvaluator
+        from apps.backend.app.services.quality.quality_detector import TileQualityDetector
+        from apps.backend.app.services.quality.quality_gate import QualityGate
+        from fastapi.testclient import TestClient
+
+        # 1. Tile Quality Detector
+        detector = TileQualityDetector()
+        clean_arr = np.full((4, 128, 128), 2000.0, dtype=np.float32)
+        metrics_clean, masks_clean = detector.analyze_raster(clean_arr)
+        assert metrics_clean.quality_status == QualityStatus.USABLE
+        assert metrics_clean.cloud_pixels == 0
+
+        # Inject cloud patch (60x60 patch = 3600 pixels, >20% of 128x128 tile)
+        cloud_arr = clean_arr.copy()
+        cloud_arr[:, 20:80, 20:80] = 5500.0
+        metrics_cloud, masks_cloud = detector.analyze_raster(cloud_arr)
+        assert metrics_cloud.cloud_pixels == 3600
+        assert metrics_cloud.quality_status in [QualityStatus.DEGRADED, QualityStatus.UNRELIABLE]
+        log("Milestone 7 Tile Quality Detector", "PASS", "Optical cloud/shadow masks & quality status verified")
+
+        # 2. Pair Quality Evaluator
+        pair_evaluator = PairQualityEvaluator()
+        pair_metrics, pair_masks = pair_evaluator.evaluate_pair(clean_arr, clean_arr)
+        assert pair_metrics.registration_score >= 0.70
+        assert pair_metrics.pair_quality_score > 0.80
+        log("Milestone 7 Pair Quality Evaluator", "PASS", f"Pair quality: {pair_metrics.pair_quality_score:.4f}, Reg score: {pair_metrics.registration_score:.4f}")
+
+        # 3. Quality Gate False-Alarm Suppression
+        gate = QualityGate(project_root=PROJECT_ROOT)
+        req_cloud = QualityGatedChangeRequest(
+            before_tile_path="dummy1.tif",
+            after_tile_path="dummy2.tif",
+            threshold=0.15,
+            suppress_clouds=True,
+        )
+        resp_cloud = gate.evaluate_change(clean_arr, cloud_arr, request=req_cloud)
+        assert resp_cloud.raw_changed_pixels >= 3600
+        assert resp_cloud.suppression_breakdown.cloud_suppressed_pixels >= 3600
+        assert resp_cloud.verified_changed_pixels == 0
+        assert resp_cloud.decision == QualityDecision.QUALITY_SUPPRESSED
+        log("Milestone 7 False-Alarm Suppression", "PASS", f"Suppressed {resp_cloud.suppression_breakdown.cloud_suppressed_pixels} cloud false-alarm pixels -> Decision: QUALITY_SUPPRESSED")
+
+        # 4. Ground Truth True Change Preservation
+        tile1_before = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20230115_96ed9480" / "tile_0001.tif"
+        tile1_after = PROJECT_ROOT / "data" / "processed" / "scn_sentinel-2_20241222_7acad713" / "tile_0001.tif"
+        if tile1_before.exists() and tile1_after.exists():
+            req_true = QualityGatedChangeRequest(
+                before_tile_path=str(tile1_before),
+                after_tile_path=str(tile1_after),
+                threshold=0.15,
+                min_pixels=10,
+            )
+            resp_true = gate.evaluate_change(tile1_before, tile1_after, request=req_true)
+            assert resp_true.verified_changed_pixels == 4800
+            assert resp_true.decision in [QualityDecision.QUALITY_PASSED, QualityDecision.QUALITY_DEGRADED]
+            log("Milestone 7 True Change Preservation", "PASS", f"Preserved {resp_true.verified_changed_pixels} px (100% of construction ground truth) -> Decision: {resp_true.decision.value}")
+
+        # 5. REST API Endpoints
+        app = create_app()
+        client = TestClient(app)
+
+        # A. Quality Config
+        res_cfg = client.get("/api/v1/quality/config")
+        assert res_cfg.status_code == 200
+        assert "thresholds" in res_cfg.json()
+        assert "cloud_vis_threshold" in res_cfg.json()["thresholds"]
+
+        # B. Assess Tile
+        res_tile = client.post(
+            "/api/v1/quality/assess-tile",
+            json={"tile_id": "scn_sentinel-2_20230115_96ed9480_t0000"},
+        )
+        assert res_tile.status_code == 200
+        assert res_tile.json()["quality_status"] == "USABLE"
+
+        # C. Assess Pair
+        res_pair = client.post(
+            "/api/v1/quality/assess-pair",
+            json={
+                "t1_input": "scn_sentinel-2_20230115_96ed9480_t0000",
+                "t2_input": "scn_sentinel-2_20241222_7acad713_t0000",
+            },
+        )
+        assert res_pair.status_code == 200
+
+        # D. Detect Gated Change
+        res_chg = client.post(
+            "/api/v1/change/detect-gated",
+            json={
+                "before_tile_path": "data/processed/scn_sentinel-2_20230115_96ed9480/tile_0001.tif",
+                "after_tile_path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0001.tif",
+                "threshold": 0.15,
+            },
+        )
+        assert res_chg.status_code == 200
+        assert res_chg.json()["decision"] in ["QUALITY_PASSED", "QUALITY_DEGRADED"]
+        log("Milestone 7 REST API Endpoints", "PASS", "POST /quality/assess-tile, assess-pair, detect-gated, GET /config 200 OK")
+
+        return True
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        log("Milestone 7 Quality Gate", "FAIL", f"{type(e).__name__}: {e}")
+        return False
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1, 2, 3, 4, 5 & 6 VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1, 2, 3, 4, 5, 6 & 7 VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -473,11 +584,12 @@ def main():
         verify_baseline_retrieval(),
         verify_change_detection(),
         verify_semantic_retrieval(),
+        verify_quality_gate(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1, 2, 3, 4, 5 & 6 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1, 2, 3, 4, 5, 6 & 7 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")
