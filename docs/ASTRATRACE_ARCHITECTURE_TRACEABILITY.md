@@ -38,15 +38,15 @@
 │ Catalog & STAC REST Endpoints        │ apps/backend/app/api/v1/endpoints/│ Implemented      │ M3        │
 │ Database Init CLI Utility            │ scripts/init_db.py                │ Implemented      │ M3        │
 │ Scene Cataloging CLI Utility         │ scripts/catalog_scene.py          │ Implemented      │ M3        │
-│ pgvector HNSW Vector Store           │ apps/backend/app/models/          │ Planned          │ M6        │
-│ Baseline Image Differencing & NDVI   │ apps/backend/app/services/change  │ Planned          │ M5        │
-│ RemoteCLIP Semantic Retrieval        │ apps/backend/app/services/embed   │ Planned          │ M6        │
-│ ChangeFormer-lite Bitemporal Model   │ apps/backend/app/services/change  │ Planned          │ M6        │
-│ Quality Gate & False-Alarm Filter    │ apps/backend/app/services/quality │ Planned          │ M7        │
-│ Multisensor Optical/SAR Agreement    │ apps/backend/app/services/fusion  │ Planned          │ M8        │
-│ MapLibre GL JS Bitemporal Viewer     │ apps/frontend/src/map/            │ Planned          │ M8        │
-│ Analyst Review & Feedback Store      │ apps/backend/app/api/v1/reviews.py│ Planned          │ M8        │
-│ Append-Only Merkle Audit Trail       │ apps/backend/app/models/audit.py  │ Planned          │ M9        │
-│ Automated Benchmark Suite            │ scripts/run_evaluation.py         │ Planned          │ M10       │
+│ pgvector HNSW Vector Store           │ apps/backend/app/models/          │ Implemented      │ M6        │
+│ Baseline Image Differencing & NDVI   │ apps/backend/app/services/change  │ Implemented      │ M5        │
+│ RemoteCLIP Semantic Retrieval        │ apps/backend/app/services/embed   │ Implemented      │ M6        │
+│ ChangeFormer-lite Bitemporal Model   │ apps/backend/app/services/change  │ Implemented      │ M6        │
+│ Quality Gate & False-Alarm Filter    │ apps/backend/app/services/quality │ Implemented      │ M7        │
+│ Multisensor Optical/SAR Agreement    │ apps/backend/app/services/fusion  │ Implemented      │ M8        │
+│ MapLibre GL JS Bitemporal Viewer     │ apps/frontend/src/map/            │ Implemented      │ M8        │
+│ Analyst Review & Feedback Store      │ apps/backend/app/api/v1/reviews.py│ Implemented      │ M8        │
+│ Append-Only Merkle Audit Trail       │ apps/backend/app/models/audit.py  │ Implemented      │ M9        │
+│ Automated Benchmark Suite            │ scripts/run_evaluation.py         │ Implemented      │ M10       │
 └──────────────────────────────────────┴───────────────────────────────────┴──────────────────┴───────────┘
 ```

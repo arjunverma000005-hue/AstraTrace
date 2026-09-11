@@ -5,6 +5,7 @@ from apps.backend.app.api.v1.endpoints.catalog import router as catalog_router
 from apps.backend.app.api.v1.endpoints.change import router as change_router
 from apps.backend.app.api.v1.endpoints.quality import router as quality_router
 from apps.backend.app.api.v1.endpoints.review import router as review_router
+from apps.backend.app.api.v1.endpoints.evaluation import router as evaluation_router
 from apps.backend.app.api.v1.endpoints.provenance import router as provenance_router
 from apps.backend.app.api.v1.endpoints.search import router as search_router
 from apps.backend.app.api.v1.endpoints.semantic import router as semantic_router
@@ -23,6 +24,7 @@ router.include_router(semantic_router)
 router.include_router(quality_router)
 router.include_router(review_router)
 router.include_router(provenance_router)
+router.include_router(evaluation_router)
 
 
 @router.get(
@@ -64,6 +66,7 @@ async def system_status() -> SystemStatusResponse:
             "analyst_review_queue": "operational",
             "provenance_verifier": "operational",
             "audit_logger": "operational",
+            "automated_evaluator": "operational",
             "storage": "local_filesystem",
         },
         timestamp=datetime.now(timezone.utc),

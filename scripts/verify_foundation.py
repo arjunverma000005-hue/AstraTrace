@@ -751,9 +751,66 @@ def verify_milestone9_provenance_and_hardening() -> bool:
         return False
 
 
+def verify_milestone10_evaluation() -> bool:
+    """Verifies Milestone 10 automated benchmark evaluation engine, schemas, and REST endpoints."""
+    try:
+        from apps.backend.app.services.evaluation.benchmark_runner import BenchmarkRunnerService
+        from apps.backend.app.main import create_app
+        from fastapi.testclient import TestClient
+
+        # 1. Benchmark Runner Service
+        runner = BenchmarkRunnerService(project_root=PROJECT_ROOT)
+        report = runner.get_latest_report(run_if_missing=True)
+
+        assert report.report_id.startswith("bench_")
+        assert report.all_benchmarks_passed is True
+        assert report.retrieval.queries_evaluated >= 4
+        assert report.change_detection.true_positive_preservation_pct >= 95.0
+        assert report.change_detection.false_alarm_suppression_pct >= 95.0
+        assert report.provenance.tampered_artifacts_detected >= 1
+        assert report.system.evidence_first_completeness_pct == 100.0
+        assert report.system.airgap_isolation_verified is True
+
+        log(
+            "Milestone 10 Automated Benchmark Suite",
+            "PASS",
+            f"Report {report.report_id} ({report.duration_seconds}s, P@5={report.retrieval.semantic.mean_precision_at_k:.2f}, Suppress={report.change_detection.false_alarm_suppression_pct:.0f}%)"
+        )
+
+        # 2. REST Endpoints
+        app = create_app()
+        client = TestClient(app)
+
+        res_sum = client.get("/api/v1/evaluation/summary")
+        assert res_sum.status_code == 200
+        data_sum = res_sum.json()
+        assert data_sum["report_id"] == report.report_id
+
+        res_run = client.post("/api/v1/evaluation/run?top_k=3")
+        assert res_run.status_code == 201
+        data_run = res_run.json()
+        assert data_run["retrieval"]["top_k"] == 3
+
+        log("Milestone 10 REST API Endpoints", "PASS", "GET /api/v1/evaluation/summary & POST /api/v1/evaluation/run 200/201 OK")
+
+        # 3. Benchmark Artifact Verification
+        md_file = PROJECT_ROOT / "docs" / "BENCHMARK_REPORT.md"
+        json_file = PROJECT_ROOT / "data" / "processed" / "evaluation" / "benchmark_report.json"
+        assert md_file.exists(), "docs/BENCHMARK_REPORT.md missing"
+        assert json_file.exists(), "data/processed/evaluation/benchmark_report.json missing"
+        log("Milestone 10 Report Artifacts", "PASS", f"Verified {md_file.name} ({md_file.stat().st_size} bytes) & {json_file.name}")
+
+        return True
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        log("Milestone 10 Benchmark Evaluation", "FAIL", f"{type(e).__name__}: {e}")
+        return False
+
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1 - 9 COMPLETE VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1 - 10 COMPLETE VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -769,11 +826,12 @@ def main():
         verify_quality_gate(),
         verify_milestone8_search_and_review(),
         verify_milestone9_provenance_and_hardening(),
+        verify_milestone10_evaluation(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1 through 9 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1 through 10 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")
