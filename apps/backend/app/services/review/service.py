@@ -276,6 +276,12 @@ class AnalystReviewService:
                     "bbox": bbox,
                     "centroid": centroid,
                     "geometry": geometry,
+                    "coordinates": [
+                        [bbox[0], bbox[3]],
+                        [bbox[2], bbox[3]],
+                        [bbox[2], bbox[1]],
+                        [bbox[0], bbox[1]],
+                    ],
                     "crs": "EPSG:32643",
                 },
                 when=t.scene.acquired_at.isoformat() if t.scene and t.scene.acquired_at else None,

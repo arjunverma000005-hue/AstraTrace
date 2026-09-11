@@ -19,6 +19,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [focusSingleTile, setFocusSingleTile] = useState<boolean>(false);
 
   // Initialize MapLibre GL instance with 100% offline self-contained style
   useEffect(() => {
@@ -88,20 +89,59 @@ export const MapViewer: React.FC<MapViewerProps> = ({
     const rasterSourceId = 'selected-candidate-raster-source';
     const rasterLayerId = 'selected-candidate-raster-layer';
 
+    // Filter and deduplicate candidates by spatial footprint
+    let displayCandidates = candidates;
+    if (focusSingleTile && selectedCandidate) {
+      displayCandidates = [selectedCandidate];
+    } else {
+      // Spatial deduplication: if multiple temporal observations share the same bbox, retain one feature
+      const seenBoxes = new Set<string>();
+      const deduped: EvidenceFirstCandidate[] = [];
+      for (const c of candidates) {
+        const boxKey = c.where?.bbox ? c.where.bbox.map((v) => v.toFixed(5)).join(':') : (c.target_id || c.candidate_id);
+        if (!seenBoxes.has(boxKey)) {
+          seenBoxes.add(boxKey);
+          deduped.push(c);
+        } else if (
+          selectedCandidate &&
+          (selectedCandidate.target_id === c.target_id || selectedCandidate.candidate_id === c.candidate_id)
+        ) {
+          const existingIdx = deduped.findIndex(
+            (d) => d.where?.bbox && d.where.bbox.map((v) => v.toFixed(5)).join(':') === boxKey,
+          );
+          if (existingIdx !== -1) {
+            deduped[existingIdx] = c;
+          }
+        }
+      }
+      displayCandidates = deduped;
+    }
+
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: candidates.map((c) => ({
-        type: 'Feature',
-        properties: {
-          candidate_id: c.candidate_id,
-          target_id: c.target_id,
-          what: c.what,
-          confidence: c.confidence,
-          review_status: c.review_status,
-          isSelected: selectedCandidate?.candidate_id === c.candidate_id ? 1 : 0,
-        },
-        geometry: c.where.geometry as GeoJSON.Geometry,
-      })),
+      features: displayCandidates.map((c) => {
+        const isSelected =
+          selectedCandidate &&
+          ((c.candidate_id && selectedCandidate.candidate_id === c.candidate_id) ||
+           (c.target_id && selectedCandidate.target_id === c.target_id) ||
+           (c.where?.bbox && selectedCandidate.where?.bbox &&
+            c.where.bbox.every((v, i) => Math.abs(v - selectedCandidate.where.bbox[i]) < 1e-5)))
+            ? 1
+            : 0;
+
+        return {
+          type: 'Feature',
+          properties: {
+            candidate_id: c.candidate_id || c.target_id,
+            target_id: c.target_id,
+            what: c.what,
+            confidence: c.confidence,
+            review_status: c.review_status,
+            isSelected,
+          },
+          geometry: c.where.geometry as GeoJSON.Geometry,
+        };
+      }),
     };
 
     const source = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
@@ -132,8 +172,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           'fill-opacity': [
             'case',
             ['==', ['get', 'isSelected'], 1],
-            0.35,
-            0.2,
+            0.15,
+            0.25,
           ],
         },
       });
@@ -163,7 +203,11 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       map.on('click', fillLayerId, (e: any) => {
         if (e.features && e.features[0]) {
           const cid = e.features[0].properties?.candidate_id;
-          const match = candidates.find((c) => c.candidate_id === cid);
+          const tid = e.features[0].properties?.target_id;
+          const match = candidates.find(
+            (c) => (cid && (c.candidate_id === cid || c.target_id === cid)) ||
+                   (tid && (c.target_id === tid || c.candidate_id === tid)),
+          );
           if (match) onSelectCandidate(match);
         }
       });
@@ -195,7 +239,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         [number, number],
         [number, number],
         [number, number]
-      ] = [
+      ] = selectedCandidate.where.coordinates || [
         [bbox[0], bbox[3]], // Top-Left: [minLon, maxLat]
         [bbox[2], bbox[3]], // Top-Right: [maxLon, maxLat]
         [bbox[2], bbox[1]], // Bottom-Right: [maxLon, minLat]
@@ -274,11 +318,15 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           [minLon, minLat],
           [maxLon, maxLat],
         ],
-        { padding: 80, maxZoom: 14, duration: 800 },
+        { padding: 40, maxZoom: 16.5, duration: 800 },
       );
     } else if (candidates.length > 0) {
-      const allLons = candidates.flatMap((c) => [c.where.bbox[0], c.where.bbox[2]]);
-      const allLats = candidates.flatMap((c) => [c.where.bbox[1], c.where.bbox[3]]);
+      const primaryCluster = candidates.filter(
+        (c) => (candidates[0].where.centroid[1] > 25 ? c.where.centroid[1] > 25 : c.where.centroid[1] <= 25),
+      );
+      const targetCandidates = primaryCluster.length > 0 ? primaryCluster : candidates;
+      const allLons = targetCandidates.flatMap((c) => [c.where.bbox[0], c.where.bbox[2]]);
+      const allLats = targetCandidates.flatMap((c) => [c.where.bbox[1], c.where.bbox[3]]);
       const bounds: [number, number, number, number] = [
         Math.min(...allLons),
         Math.min(...allLats),
@@ -290,10 +338,10 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           [bounds[0], bounds[1]],
           [bounds[2], bounds[3]],
         ],
-        { padding: 50, maxZoom: 13, duration: 800 },
+        { padding: 50, maxZoom: 14, duration: 800 },
       );
     }
-  }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate]);
+  }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate, focusSingleTile]);
 
   const currentCandidate = selectedCandidate || (candidates.length > 0 ? candidates[0] : null);
   const aoiLabel =
@@ -309,11 +357,26 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           <span style={styles.dot} />
           <span>{aoiLabel}</span>
         </div>
-        <div style={styles.legend}>
-          <span style={{ ...styles.legendItem, color: '#38bdf8' }}>■ Pending</span>
-          <span style={{ ...styles.legendItem, color: '#10b981' }}>■ Confirmed</span>
-          <span style={{ ...styles.legendItem, color: '#f59e0b' }}>■ Flagged</span>
-          <span style={{ ...styles.legendItem, color: '#ef4444' }}>■ Rejected</span>
+        <div style={styles.headerControls}>
+          <button
+            type="button"
+            onClick={() => setFocusSingleTile((prev) => !prev)}
+            style={{
+              ...styles.focusBtn,
+              backgroundColor: focusSingleTile ? '#facc15' : 'rgba(30, 41, 59, 0.9)',
+              color: focusSingleTile ? '#0f172a' : '#94a3b8',
+              borderColor: focusSingleTile ? '#eab308' : '#475569',
+            }}
+            title="Toggle single selected tile isolation mode"
+          >
+            {focusSingleTile ? '🎯 Single Tile Focused' : '🔲 All Footprints'}
+          </button>
+          <div style={styles.legend}>
+            <span style={{ ...styles.legendItem, color: '#38bdf8' }}>■ Pending</span>
+            <span style={{ ...styles.legendItem, color: '#10b981' }}>■ Confirmed</span>
+            <span style={{ ...styles.legendItem, color: '#f59e0b' }}>■ Flagged</span>
+            <span style={{ ...styles.legendItem, color: '#ef4444' }}>■ Rejected</span>
+          </div>
         </div>
       </div>
 
@@ -409,6 +472,25 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     backgroundColor: '#10b981',
     boxShadow: '0 0 8px #10b981',
+  },
+  headerControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    pointerEvents: 'auto',
+  },
+  focusBtn: {
+    pointerEvents: 'auto',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    fontSize: '0.72rem',
+    fontWeight: 600,
+    borderRadius: '4px',
+    border: '1px solid',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
   legend: {
     display: 'flex',

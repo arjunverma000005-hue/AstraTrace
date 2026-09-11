@@ -45,6 +45,7 @@ export interface EvidenceFirstCandidate {
       type: string;
       coordinates: number[][][];
     };
+    coordinates?: [[number, number], [number, number], [number, number], [number, number]];
     crs?: string;
   };
   when: string | null;

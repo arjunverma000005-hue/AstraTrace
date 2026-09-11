@@ -172,6 +172,12 @@ class UnifiedSearchService:
                             "bbox": r.bounds_wgs84,
                             "centroid": centroid,
                             "geometry": r.geometry,
+                            "coordinates": [
+                                [r.bounds_wgs84[0], r.bounds_wgs84[3]],
+                                [r.bounds_wgs84[2], r.bounds_wgs84[3]],
+                                [r.bounds_wgs84[2], r.bounds_wgs84[1]],
+                                [r.bounds_wgs84[0], r.bounds_wgs84[1]],
+                            ],
                             "crs": "EPSG:32643",
                         },
                         when=r.acquired_at,
@@ -216,99 +222,122 @@ class UnifiedSearchService:
                 )
                 s_res = s_service.search_semantic(s_req)
 
-                for idx, r in enumerate(s_res.results):
-                    # Fetch database tile for full geometry and metadata
-                    tile_db = self.db.query(TileRecord).filter(TileRecord.tile_id == r.tile_id).first()
-                    centroid = [
-                        round((r.bounds_wgs84[0] + r.bounds_wgs84[2]) / 2.0, 6),
-                        round((r.bounds_wgs84[1] + r.bounds_wgs84[3]) / 2.0, 6),
-                    ]
-                    cloud_pct = tile_db.cloud_cover_percent if tile_db else 0.0
-                    usable_frac = round(max(0.0, 1.0 - (cloud_pct / 100.0)), 4)
-                    qual_status = "USABLE" if cloud_pct < 10.0 else ("DEGRADED" if cloud_pct < 30.0 else "UNRELIABLE")
+            seen_spatial_keys = set()
+            for r in s_res.results:
+                # Fetch database tile for full geometry and metadata
+                tile_db = self.db.query(TileRecord).filter(TileRecord.tile_id == r.tile_id).first()
 
-                    geometry = tile_db.to_geojson_geometry() if tile_db else {
-                        "type": "Polygon",
-                        "coordinates": [[
-                            [r.bounds_wgs84[0], r.bounds_wgs84[1]],
-                            [r.bounds_wgs84[2], r.bounds_wgs84[1]],
-                            [r.bounds_wgs84[2], r.bounds_wgs84[3]],
-                            [r.bounds_wgs84[0], r.bounds_wgs84[3]],
-                            [r.bounds_wgs84[0], r.bounds_wgs84[1]],
-                        ]],
-                    }
+                temporal_pair = self._resolve_temporal_pair(tile_db)
+                target_type = "CHANGE" if temporal_pair else "TILE"
 
-                    temporal_pair = self._resolve_temporal_pair(tile_db)
-                    target_type = "CHANGE" if temporal_pair else "TILE"
+                # Deduplicate co-located observations sharing the same spatial tile
+                if temporal_pair:
+                    spatial_key = (temporal_pair["before_tile_id"], temporal_pair["after_tile_id"])
+                elif tile_db:
+                    spatial_key = (tile_db.scene_id, tile_db.tile_index)
+                else:
+                    spatial_key = (r.scene_id, r.tile_id)
 
-                    why_dict: Dict[str, Any] = {
-                        "semantic_score": r.semantic_score,
-                        "cosine_sim": r.cosine_sim,
-                        "baseline_score": r.baseline_score or 0.0,
-                        "hybrid_score": r.hybrid_score,
-                    }
-                    provenance_dict: Dict[str, Any] = {
-                        "checksum": r.checksum,
-                        "model_name": s_res.model_info.get("model_name", "RemoteCLIP-ResNet50") if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "model_name", "RemoteCLIP-ResNet50"),
-                        "dimension": s_res.model_info.get("dimension", 512) if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "dimension", 512),
-                    }
-                    which_dict: Dict[str, Any] = {
-                        "sensor": r.sensor,
-                        "scene_id": r.scene_id,
-                        "tile_id": r.tile_id,
-                    }
-                    mask_url = None
-                    when_val = tile_db.scene.acquired_at.isoformat() if tile_db and tile_db.scene and tile_db.scene.acquired_at else None
+                if spatial_key in seen_spatial_keys:
+                    continue
+                seen_spatial_keys.add(spatial_key)
 
-                    if temporal_pair:
-                        why_dict["before_tile_id"] = temporal_pair["before_tile_id"]
-                        why_dict["after_tile_id"] = temporal_pair["after_tile_id"]
-                        why_dict["changed_pixels"] = temporal_pair["changed_pixels"]
-                        why_dict["change_percent"] = temporal_pair["change_percent"]
-                        why_dict["change_type"] = temporal_pair["change_type"]
-                        why_dict["composite_change_score"] = temporal_pair["composite_change_score"]
+                centroid = [
+                    round((r.bounds_wgs84[0] + r.bounds_wgs84[2]) / 2.0, 6),
+                    round((r.bounds_wgs84[1] + r.bounds_wgs84[3]) / 2.0, 6),
+                ]
+                cloud_pct = tile_db.cloud_cover_percent if tile_db else 0.0
+                usable_frac = round(max(0.0, 1.0 - (cloud_pct / 100.0)), 4)
+                qual_status = "USABLE" if cloud_pct < 10.0 else ("DEGRADED" if cloud_pct < 30.0 else "UNRELIABLE")
 
-                        provenance_dict["before_tile_id"] = temporal_pair["before_tile_id"]
-                        provenance_dict["after_tile_id"] = temporal_pair["after_tile_id"]
-                        provenance_dict["change_id"] = temporal_pair["change_id"]
+                geometry = tile_db.to_geojson_geometry() if tile_db else {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [r.bounds_wgs84[0], r.bounds_wgs84[1]],
+                        [r.bounds_wgs84[2], r.bounds_wgs84[1]],
+                        [r.bounds_wgs84[2], r.bounds_wgs84[3]],
+                        [r.bounds_wgs84[0], r.bounds_wgs84[3]],
+                        [r.bounds_wgs84[0], r.bounds_wgs84[1]],
+                    ]],
+                }
 
-                        which_dict["before_tile_id"] = temporal_pair["before_tile_id"]
-                        which_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+                why_dict: Dict[str, Any] = {
+                    "semantic_score": r.semantic_score,
+                    "cosine_sim": r.cosine_sim,
+                    "baseline_score": r.baseline_score or 0.0,
+                    "hybrid_score": r.hybrid_score,
+                }
+                provenance_dict: Dict[str, Any] = {
+                    "checksum": r.checksum,
+                    "model_name": s_res.model_info.get("model_name", "RemoteCLIP-ResNet50") if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "model_name", "RemoteCLIP-ResNet50"),
+                    "dimension": s_res.model_info.get("dimension", 512) if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "dimension", 512),
+                }
+                which_dict: Dict[str, Any] = {
+                    "sensor": r.sensor,
+                    "scene_id": r.scene_id,
+                    "tile_id": r.tile_id,
+                }
+                mask_url = None
+                when_val = tile_db.scene.acquired_at.isoformat() if tile_db and tile_db.scene and tile_db.scene.acquired_at else None
 
-                        mask_url = temporal_pair["mask_url"]
-                        if temporal_pair.get("when"):
-                            when_val = temporal_pair["when"]
+                if temporal_pair:
+                    why_dict["before_tile_id"] = temporal_pair["before_tile_id"]
+                    why_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+                    why_dict["changed_pixels"] = temporal_pair["changed_pixels"]
+                    why_dict["change_percent"] = temporal_pair["change_percent"]
+                    why_dict["change_type"] = temporal_pair["change_type"]
+                    why_dict["composite_change_score"] = temporal_pair["composite_change_score"]
 
-                    candidates.append(
-                        EvidenceFirstCandidate(
-                            candidate_id=f"cand_{r.tile_id}",
-                            target_id=r.tile_id,
-                            target_type=target_type,
-                            rank=idx + 1,
-                            what=f"Target Semantic Match (Sim: {r.cosine_sim:.3f})",
-                            where={
-                                "bbox": r.bounds_wgs84,
-                                "centroid": centroid,
-                                "geometry": geometry,
-                                "crs": "EPSG:32643",
-                            },
-                            when=when_val,
-                            which=which_dict,
-                            why=why_dict,
-                            confidence=round(r.hybrid_score, 4),
-                            quality_status=qual_status,
-                            quality_flags=["SEMANTIC_ALIGNED"] if r.cosine_sim > 0.1 else [],
-                            evidence={
-                                "preview_url": f"/api/v1/catalog/tiles/{r.tile_id}/preview",
-                                "mask_url": mask_url,
-                                "usable_fraction": usable_frac,
-                                "cloud_fraction": round(cloud_pct / 100.0, 4),
-                                "shadow_fraction": 0.0,
-                            },
-                            provenance=provenance_dict,
-                            review_status=review_map.get(r.tile_id, "PENDING_REVIEW"),
-                        )
+                    provenance_dict["before_tile_id"] = temporal_pair["before_tile_id"]
+                    provenance_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+                    provenance_dict["change_id"] = temporal_pair["change_id"]
+
+                    which_dict["before_tile_id"] = temporal_pair["before_tile_id"]
+                    which_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+
+                    mask_url = temporal_pair["mask_url"]
+                    if temporal_pair.get("when"):
+                        when_val = temporal_pair["when"]
+
+                # 4-corner clockwise coordinates for direct WebGL mapping: [TL, TR, BR, BL]
+                maplibre_corners = [
+                    [r.bounds_wgs84[0], r.bounds_wgs84[3]],
+                    [r.bounds_wgs84[2], r.bounds_wgs84[3]],
+                    [r.bounds_wgs84[2], r.bounds_wgs84[1]],
+                    [r.bounds_wgs84[0], r.bounds_wgs84[1]],
+                ]
+
+                candidates.append(
+                    EvidenceFirstCandidate(
+                        candidate_id=f"cand_{r.tile_id}",
+                        target_id=r.tile_id,
+                        target_type=target_type,
+                        rank=len(candidates) + 1,
+                        what=f"Target Semantic Match (Sim: {r.cosine_sim:.3f})",
+                        where={
+                            "bbox": r.bounds_wgs84,
+                            "centroid": centroid,
+                            "geometry": geometry,
+                            "coordinates": maplibre_corners,
+                            "crs": "EPSG:32643",
+                        },
+                        when=when_val,
+                        which=which_dict,
+                        why=why_dict,
+                        confidence=round(r.hybrid_score, 4),
+                        quality_status=qual_status,
+                        quality_flags=["SEMANTIC_ALIGNED"] if r.cosine_sim > 0.1 else [],
+                        evidence={
+                            "preview_url": f"/api/v1/catalog/tiles/{r.tile_id}/preview",
+                            "mask_url": mask_url,
+                            "usable_fraction": usable_frac,
+                            "cloud_fraction": round(cloud_pct / 100.0, 4),
+                            "shadow_fraction": 0.0,
+                        },
+                        provenance=provenance_dict,
+                        review_status=review_map.get(r.tile_id, "PENDING_REVIEW"),
                     )
+                )
 
         else:
             # Spatial/temporal catalog lookup route (empty query or spatial browse)
@@ -343,6 +372,12 @@ class UnifiedSearchService:
                             "bbox": [t.min_lon, t.min_lat, t.max_lon, t.max_lat],
                             "centroid": centroid,
                             "geometry": t.to_geojson_geometry(),
+                            "coordinates": [
+                                [t.min_lon, t.max_lat],
+                                [t.max_lon, t.max_lat],
+                                [t.max_lon, t.min_lat],
+                                [t.min_lon, t.min_lat],
+                            ],
                             "crs": "EPSG:32643",
                         },
                         when=t.scene.acquired_at.isoformat() if t.scene and t.scene.acquired_at else None,
