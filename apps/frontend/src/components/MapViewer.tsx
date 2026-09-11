@@ -203,13 +203,19 @@ export const MapViewer: React.FC<MapViewerProps> = ({
     }
   }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate]);
 
+  const currentCandidate = selectedCandidate || (candidates.length > 0 ? candidates[0] : null);
+  const aoiLabel =
+    currentCandidate && currentCandidate.where.centroid[1] > 25
+      ? 'AOI: Jewar Airport Corridor (T43RGM • EPSG:32643)'
+      : 'AOI: Western Ghats, MH (EPSG:32643 / EPSG:4326)';
+
   return (
     <div style={styles.container}>
       {/* Map Header Overlay */}
       <div style={styles.overlayBar}>
         <div style={styles.aoiBadge}>
           <span style={styles.dot} />
-          <span>AOI: Western Ghats, MH (EPSG:32643 / EPSG:4326)</span>
+          <span>{aoiLabel}</span>
         </div>
         <div style={styles.legend}>
           <span style={{ ...styles.legendItem, color: '#38bdf8' }}>■ Pending</span>

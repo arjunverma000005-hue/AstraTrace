@@ -12,6 +12,21 @@ interface EvidenceCardProps {
   onDecisionSubmitted: (targetId: string, decision: ReviewDecision) => void;
 }
 
+const formatTimestamp = (when?: string | null): string => {
+  if (!when) return 'Not Available';
+  if (when.includes(' to ')) {
+    return when
+      .split(' to ')
+      .map((d) => {
+        const parsed = new Date(d.trim());
+        return isNaN(parsed.getTime()) ? d.trim() : parsed.toLocaleDateString('en-GB');
+      })
+      .join(' → ');
+  }
+  const parsed = new Date(when);
+  return isNaN(parsed.getTime()) ? when : parsed.toLocaleDateString('en-GB');
+};
+
 export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   candidate,
   onDecisionSubmitted,
@@ -344,7 +359,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div style={styles.singleEpochBanner}>
                   <span style={styles.singleEpochTitle}>
                     Single Observation Epoch • Sensor: <strong>{candidate.which.sensor}</strong> • Acquired:{' '}
-                    <strong>{candidate.when ? new Date(candidate.when).toLocaleDateString() : 'N/A'}</strong>
+                    <strong>{formatTimestamp(candidate.when)}</strong>
                   </span>
                   <span style={styles.singleEpochSub}>
                     Baseline acquisition established. Bitemporal change detection available upon pairing with surveillance epoch T2.
@@ -416,7 +431,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               <div style={styles.dimCard}>
                 <span style={styles.dimKey}>WHEN (Timestamp)</span>
                 <span style={styles.dimVal}>
-                  {candidate.when ? new Date(candidate.when).toUTCString() : 'Not Available'}
+                  {formatTimestamp(candidate.when)}
                 </span>
               </div>
               <div style={styles.dimCard}>

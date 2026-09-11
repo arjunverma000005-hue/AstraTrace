@@ -82,6 +82,8 @@ models/*
 # Local Databases & Volume Data
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
 postgres-data/
 minio-data/
 redis-data/
