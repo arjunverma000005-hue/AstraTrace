@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SearchMode, UnifiedSearchRequest } from '../types/api';
+import { SearchIcon, CloseIcon, SpinnerIcon } from './Icons';
 
 interface SearchBarProps {
   onSearch: (req: UnifiedSearchRequest) => void;
@@ -37,7 +38,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => 
     <form onSubmit={handleSearchSubmit} style={styles.container}>
       {/* Query Input */}
       <div style={styles.inputGroup}>
-        <span style={styles.searchIcon}>🔍</span>
+        <span style={styles.searchIcon}>
+          <SearchIcon size={18} color="#94a3b8" />
+        </span>
         <input
           type="text"
           value={query}
@@ -52,7 +55,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => 
             style={styles.clearBtn}
             title="Clear search"
           >
-            ✕
+            <CloseIcon size={14} color="#94a3b8" />
           </button>
         )}
       </div>
@@ -110,7 +113,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => 
             opacity: isLoading ? 0.7 : 1.0,
           }}
         >
-          {isLoading ? 'Searching...' : 'Search Intelligence'}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            {isLoading ? <SpinnerIcon size={14} color="#ffffff" /> : <SearchIcon size={14} color="#ffffff" />}
+            <span>{isLoading ? 'Searching...' : 'Search Intelligence'}</span>
+          </span>
         </button>
       </div>
     </form>

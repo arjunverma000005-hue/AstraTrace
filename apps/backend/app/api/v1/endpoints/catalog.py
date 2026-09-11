@@ -207,3 +207,83 @@ def get_tile_preview(
 
     return FileResponse(thumb_path, media_type="image/png", filename=f"{tile_id}_rgb.png")
 
+
+@router.get(
+    "/scenes/{scene_id}/preview",
+    summary="Get Scene RGB Full Preview Image",
+    description="Generates or retrieves a contrast-stretched 8-bit RGB preview PNG for a complete satellite analysis scene.",
+)
+def get_scene_preview(
+    scene_id: str,
+    db: Session = Depends(get_db),
+):
+    """Returns an 8-bit RGB PNG preview for the full georeferenced scene analysis window."""
+    import re
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    import numpy as np
+    from PIL import Image
+    import rasterio
+    from apps.backend.app.core.errors import NotFoundError, ValidationError
+    from apps.backend.app.models.catalog import SceneRecord
+
+    if ".." in scene_id or not re.match(r"^[a-zA-Z0-9_\-\.]+$", scene_id):
+        raise ValidationError(f"Invalid scene ID format: {scene_id}")
+
+    scene = db.query(SceneRecord).filter(SceneRecord.scene_id == scene_id).first()
+    if not scene:
+        raise NotFoundError(f"Scene '{scene_id}' not found in catalog.")
+
+    # Locate project root
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "data").is_dir() and (parent / "README.md").is_file():
+            project_root = parent
+            break
+    else:
+        project_root = current.parents[4]
+
+    thumb_dir = project_root / "data" / "processed" / "thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / f"{scene_id}_full.png"
+
+    if not thumb_path.exists():
+        r_path = Path(scene.source_uri)
+        if not r_path.is_absolute():
+            r_path = (project_root / r_path).resolve()
+
+        if not r_path.exists():
+            raise NotFoundError(f"Scene raster file not found on disk: {scene.source_uri}")
+
+        with rasterio.open(r_path) as src:
+            count = src.count
+            if count >= 4:
+                # Sentinel-2: Band 1=Blue, Band 2=Green, Band 3=Red, Band 4=NIR (or B2, B3, B4, B8)
+                # Map Red=3, Green=2, Blue=1
+                r = src.read(3).astype(np.float32)
+                g = src.read(2).astype(np.float32)
+                b = src.read(1).astype(np.float32)
+            elif count == 3:
+                r = src.read(1).astype(np.float32)
+                g = src.read(2).astype(np.float32)
+                b = src.read(3).astype(np.float32)
+            else:
+                gray = src.read(1).astype(np.float32)
+                r = g = b = gray
+
+            # Percentile stretch (2% to 98%)
+            def stretch(ch: np.ndarray) -> np.ndarray:
+                p2, p98 = np.percentile(ch, (2, 98))
+                if p98 > p2:
+                    clipped = np.clip((ch - p2) / (p98 - p2), 0.0, 1.0)
+                else:
+                    clipped = np.clip(ch / (ch.max() or 1.0), 0.0, 1.0)
+                return (clipped * 255.0).astype(np.uint8)
+
+            rgb_arr = np.stack([stretch(r), stretch(g), stretch(b)], axis=-1)
+            img = Image.fromarray(rgb_arr, mode="RGB")
+            img.save(thumb_path, format="PNG")
+
+    return FileResponse(thumb_path, media_type="image/png", filename=f"{scene_id}_rgb.png")
+
+

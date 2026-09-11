@@ -54,6 +54,10 @@ export interface EvidenceFirstCandidate {
     scene_id?: string;
     tile_id?: string;
     tile_index?: number;
+    before_scene_id?: string;
+    after_scene_id?: string;
+    before_tile_id?: string;
+    after_tile_id?: string;
   };
   why: Record<string, unknown>;
   confidence: number;
@@ -65,6 +69,13 @@ export interface EvidenceFirstCandidate {
     usable_fraction: number;
     cloud_fraction: number;
     shadow_fraction: number;
+    scene_preview_url?: string | null;
+    scene_bbox?: [number, number, number, number] | null;
+    scene_coordinates?: [[number, number], [number, number], [number, number], [number, number]] | null;
+    before_scene_preview_url?: string | null;
+    after_scene_preview_url?: string | null;
+    before_date?: string | null;
+    after_date?: string | null;
   };
   provenance: Record<string, unknown>;
   review_status: ReviewDecision;

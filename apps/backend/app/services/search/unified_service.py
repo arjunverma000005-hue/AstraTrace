@@ -100,10 +100,17 @@ class UnifiedSearchService:
                 d2 = after_tile.scene.acquired_at.strftime("%Y-%m-%d")
                 when_str = f"{d1} to {d2}"
 
+            before_dt_str = before_tile.scene.acquired_at.strftime("%Y-%m-%d") if before_tile.scene and before_tile.scene.acquired_at else None
+            after_dt_str = after_tile.scene.acquired_at.strftime("%Y-%m-%d") if after_tile.scene and after_tile.scene.acquired_at else None
+
             result = {
                 "change_id": change_resp.change_id,
                 "before_tile_id": before_tile.tile_id,
                 "after_tile_id": after_tile.tile_id,
+                "before_scene_id": before_tile.scene_id if before_tile else None,
+                "after_scene_id": after_tile.scene_id if after_tile else None,
+                "before_date": before_dt_str,
+                "after_date": after_dt_str,
                 "mask_url": change_resp.mask_url,
                 "changed_pixels": change_resp.metrics.changed_pixels,
                 "change_percent": change_resp.metrics.change_percent,
@@ -277,8 +284,25 @@ class UnifiedSearchService:
                     "scene_id": r.scene_id,
                     "tile_id": r.tile_id,
                 }
-                mask_url = None
-                when_val = tile_db.scene.acquired_at.isoformat() if tile_db and tile_db.scene and tile_db.scene.acquired_at else None
+                scene_preview_url = f"/api/v1/catalog/scenes/{tile_db.scene_id}/preview" if tile_db and tile_db.scene else None
+                scene_bbox = [tile_db.scene.min_lon, tile_db.scene.min_lat, tile_db.scene.max_lon, tile_db.scene.max_lat] if tile_db and tile_db.scene else None
+                scene_coordinates = [
+                    [tile_db.scene.min_lon, tile_db.scene.max_lat],
+                    [tile_db.scene.max_lon, tile_db.scene.max_lat],
+                    [tile_db.scene.max_lon, tile_db.scene.min_lat],
+                    [tile_db.scene.min_lon, tile_db.scene.min_lat],
+                ] if tile_db and tile_db.scene else None
+
+                evidence_dict: Dict[str, Any] = {
+                    "preview_url": f"/api/v1/catalog/tiles/{r.tile_id}/preview",
+                    "mask_url": None,
+                    "usable_fraction": usable_frac,
+                    "cloud_fraction": round(cloud_pct / 100.0, 4),
+                    "shadow_fraction": 0.0,
+                    "scene_preview_url": scene_preview_url,
+                    "scene_bbox": scene_bbox,
+                    "scene_coordinates": scene_coordinates,
+                }
 
                 if temporal_pair:
                     why_dict["before_tile_id"] = temporal_pair["before_tile_id"]
@@ -294,8 +318,14 @@ class UnifiedSearchService:
 
                     which_dict["before_tile_id"] = temporal_pair["before_tile_id"]
                     which_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+                    which_dict["before_scene_id"] = temporal_pair.get("before_scene_id")
+                    which_dict["after_scene_id"] = temporal_pair.get("after_scene_id")
 
-                    mask_url = temporal_pair["mask_url"]
+                    evidence_dict["mask_url"] = temporal_pair["mask_url"]
+                    evidence_dict["before_scene_preview_url"] = f"/api/v1/catalog/scenes/{temporal_pair['before_scene_id']}/preview" if temporal_pair.get("before_scene_id") else None
+                    evidence_dict["after_scene_preview_url"] = f"/api/v1/catalog/scenes/{temporal_pair['after_scene_id']}/preview" if temporal_pair.get("after_scene_id") else None
+                    evidence_dict["before_date"] = temporal_pair.get("before_date")
+                    evidence_dict["after_date"] = temporal_pair.get("after_date")
                     if temporal_pair.get("when"):
                         when_val = temporal_pair["when"]
 
@@ -327,13 +357,7 @@ class UnifiedSearchService:
                         confidence=round(r.hybrid_score, 4),
                         quality_status=qual_status,
                         quality_flags=["SEMANTIC_ALIGNED"] if r.cosine_sim > 0.1 else [],
-                        evidence={
-                            "preview_url": f"/api/v1/catalog/tiles/{r.tile_id}/preview",
-                            "mask_url": mask_url,
-                            "usable_fraction": usable_frac,
-                            "cloud_fraction": round(cloud_pct / 100.0, 4),
-                            "shadow_fraction": 0.0,
-                        },
+                        evidence=evidence_dict,
                         provenance=provenance_dict,
                         review_status=review_map.get(r.tile_id, "PENDING_REVIEW"),
                     )
@@ -399,6 +423,14 @@ class UnifiedSearchService:
                             "usable_fraction": usable_frac,
                             "cloud_fraction": round(cloud_pct / 100.0, 4),
                             "shadow_fraction": 0.0,
+                            "scene_preview_url": f"/api/v1/catalog/scenes/{t.scene_id}/preview" if t.scene else None,
+                            "scene_bbox": [t.scene.min_lon, t.scene.min_lat, t.scene.max_lon, t.scene.max_lat] if t.scene else None,
+                            "scene_coordinates": [
+                                [t.scene.min_lon, t.scene.max_lat],
+                                [t.scene.max_lon, t.scene.max_lat],
+                                [t.scene.max_lon, t.scene.min_lat],
+                                [t.scene.min_lon, t.scene.min_lat],
+                            ] if t.scene else None,
                         },
                         provenance={
                             "checksum": t.checksum,

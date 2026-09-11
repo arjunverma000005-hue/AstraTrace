@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { EvidenceFirstCandidate, ReviewDecision } from '../types/api';
+import { ListIcon } from './Icons';
 
 interface ReviewQueueProps {
   candidates: EvidenceFirstCandidate[];
@@ -67,7 +68,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
       <div style={styles.header}>
         <div style={styles.headerTop}>
           <div style={styles.titleGroup}>
-            <span style={styles.queueIcon}>📋</span>
+            <span style={styles.queueIcon}><ListIcon size={18} color="#38bdf8" /></span>
             <h3 style={styles.title}>Analyst Review Queue</h3>
           </div>
           <span style={styles.totalBadge}>{candidates.length} Targets</span>

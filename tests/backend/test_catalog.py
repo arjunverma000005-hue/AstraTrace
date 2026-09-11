@@ -265,3 +265,22 @@ def test_api_stac_endpoints(app_client):
     item_res = app_client.get(f"/api/v1/stac/collections/{collection_id}/items/{item_id}")
     assert item_res.status_code == 200
     assert item_res.json()["id"] == item_id
+
+
+def test_api_scene_preview_endpoint(app_client):
+    """Full scene preview endpoint returns 8-bit RGB PNG for georeferenced main-map underlay."""
+    app_client.post("/api/v1/catalog/ingest-manifest", json={"manifest_path": SAMPLE_MANIFEST_REL})
+    scene_id = "scn_sentinel-2_20230115_96ed9480"
+    res = app_client.get(f"/api/v1/catalog/scenes/{scene_id}/preview")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "image/png"
+    assert len(res.content) > 1000
+
+    # Invalid scene ID format
+    bad_res = app_client.get("/api/v1/catalog/scenes/invalid..id/preview")
+    assert bad_res.status_code == 422
+
+    # Non-existent scene
+    missing_res = app_client.get("/api/v1/catalog/scenes/scn_nonexistent_12345/preview")
+    assert missing_res.status_code == 404
+

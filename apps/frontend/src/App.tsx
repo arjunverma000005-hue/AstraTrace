@@ -5,6 +5,7 @@ import { EvidenceCard } from './components/EvidenceCard';
 import { MapViewer } from './components/MapViewer';
 import { ReviewQueue } from './components/ReviewQueue';
 import { SearchBar } from './components/SearchBar';
+import { SatelliteIcon, ShieldIcon } from './components/Icons';
 import {
   EvidenceFirstCandidate,
   ReviewDecision,
@@ -88,7 +89,7 @@ export const App: React.FC = () => {
         {/* Top Operational Navigation Bar */}
         <header style={styles.header}>
           <div style={styles.brand}>
-            <span style={styles.logoIcon}>🛰️</span>
+            <SatelliteIcon size={26} color="#38bdf8" style={{ marginRight: '10px' }} />
             <div>
               <h1 style={styles.brandTitle}>ASTRATRACE</h1>
               <span style={styles.brandSubtitle}>
@@ -102,6 +103,7 @@ export const App: React.FC = () => {
             <div style={styles.badgeMod}>Ministry of Defence • Indian Army, DGIS</div>
             <div style={styles.badgeAirgap}>
               <span style={styles.greenPulse} />
+              <ShieldIcon size={13} color="#10b981" style={{ marginRight: '4px' }} />
               <span>AIR-GAPPED (100% OFFLINE)</span>
             </div>
           </div>

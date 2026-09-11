@@ -207,6 +207,13 @@ export class ApiClient {
   }
 
   /**
+   * Returns direct API URL for full georeferenced optical scene preview image.
+   */
+  static getScenePreviewUrl(sceneId: string): string {
+    return `${API_BASE_URL}/catalog/scenes/${encodeURIComponent(sceneId)}/preview`;
+  }
+
+  /**
    * Returns direct API URL for change mask image.
    */
   static getChangeMaskUrl(changeId: string): string {

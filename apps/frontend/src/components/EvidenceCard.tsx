@@ -6,6 +6,16 @@ import {
   SemanticTileResult,
   EvidencePackageExportResponse,
 } from '../types/api';
+import {
+  SatelliteIcon,
+  SearchIcon,
+  DownloadIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  XCircleIcon,
+  FlagIcon,
+  SpinnerIcon,
+} from './Icons';
 
 interface EvidenceCardProps {
   candidate: EvidenceFirstCandidate | null;
@@ -106,7 +116,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   if (!candidate) {
     return (
       <div style={styles.emptyContainer}>
-        <span style={styles.emptyIcon}>🔍</span>
+        <span style={styles.emptyIcon}><SearchIcon size={32} color="#64748b" /></span>
         <h4 style={styles.emptyTitle}>No Observation Selected</h4>
         <p style={styles.emptySub}>
           Select a candidate from the review queue or click on a footprint on the map to inspect evidence.
@@ -344,7 +354,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div style={styles.imageWrapper}>
                   {previewError ? (
                     <div style={styles.imageFallbackBox}>
-                      <span style={styles.fallbackIcon}>🛰️</span>
+                      <span style={styles.fallbackIcon}><SatelliteIcon size={22} color="#38bdf8" /></span>
                       <span style={styles.fallbackText}>Optical preview thumbnail unavailable</span>
                     </div>
                   ) : (
@@ -376,7 +386,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 style={styles.findSimilarActionBtn}
                 title="Search vector index for semantically and visually similar satellite observations"
               >
-                {isLoadingSimilar ? '⏳ Searching 512-D Index...' : '🔍 Find Similar Sites (512-D)'}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {isLoadingSimilar ? <SpinnerIcon size={14} /> : <SearchIcon size={14} />}
+                  <span>{isLoadingSimilar ? 'Searching 512-D Index...' : 'Find Similar Sites (512-D)'}</span>
+                </span>
               </button>
               <button
                 onClick={handleDownloadDossier}
@@ -384,7 +397,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 style={styles.downloadDossierBtn}
                 title="Generate and download self-contained, air-gapped forensic evidence dossier sealed with SHA-256"
               >
-                {isExportingDossier ? '⏳ Compiling Dossier...' : '📥 Download Evidence Dossier'}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {isExportingDossier ? <SpinnerIcon size={14} /> : <DownloadIcon size={14} />}
+                  <span>{isExportingDossier ? 'Compiling Dossier...' : 'Download Evidence Dossier'}</span>
+                </span>
               </button>
             </div>
 
@@ -392,7 +408,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
             {dossierExportResult && (
               <div style={styles.dossierSuccessAlert}>
                 <div style={styles.dossierSuccessHeader}>
-                  <span style={styles.dossierSuccessTitle}>✓ FORENSIC EVIDENCE DOSSIER SEALED & DOWNLOADED</span>
+                  <span style={styles.dossierSuccessTitle}>
+                    <CheckCircleIcon size={16} color="#10b981" style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                    FORENSIC EVIDENCE DOSSIER SEALED & DOWNLOADED
+                  </span>
                   <span style={styles.dossierBadge}>{dossierExportResult.export_id}</span>
                 </div>
                 <div style={styles.dossierDetails}>
@@ -411,7 +430,8 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
             {dossierExportError && (
               <div style={styles.errorAlert}>
-                ⚠️ Dossier Export Failed: {dossierExportError}
+                <AlertTriangleIcon size={16} color="#ef4444" style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                Dossier Export Failed: {dossierExportError}
               </div>
             )}
 
@@ -638,7 +658,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   onClick={handleFindSimilar}
                   style={styles.triggerSimilarBtn}
                 >
-                  🔍 Execute Similarity Search
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <SearchIcon size={14} color="#ffffff" />
+                    <span>Execute Similarity Search</span>
+                  </span>
                 </button>
               </div>
             )}
@@ -663,7 +686,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 fontWeight: selectedDecision === 'CONFIRMED' ? 800 : 600,
               }}
             >
-              ✓ Confirm Target
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircleIcon size={14} />
+                <span>Confirm Target</span>
+              </span>
             </button>
             <button
               onClick={() => setSelectedDecision('FLAGGED_FOR_INSPECTION')}
@@ -675,7 +701,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 fontWeight: selectedDecision === 'FLAGGED_FOR_INSPECTION' ? 800 : 600,
               }}
             >
-              ⚠ Flag for Review
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <FlagIcon size={14} />
+                <span>Flag for Review</span>
+              </span>
             </button>
             <button
               onClick={() => setSelectedDecision('REJECTED')}
@@ -687,7 +716,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 fontWeight: selectedDecision === 'REJECTED' ? 800 : 600,
               }}
             >
-              ✕ Reject (False Alarm)
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <XCircleIcon size={14} />
+                <span>Reject (False Alarm)</span>
+              </span>
             </button>
           </div>
 

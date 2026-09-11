@@ -305,6 +305,14 @@ class AnalystReviewService:
                     "usable_fraction": usable_frac,
                     "cloud_fraction": round(cloud_pct / 100.0, 4),
                     "shadow_fraction": 0.0,
+                    "scene_preview_url": f"/api/v1/catalog/scenes/{t.scene_id}/preview" if t.scene else None,
+                    "scene_bbox": [t.scene.min_lon, t.scene.min_lat, t.scene.max_lon, t.scene.max_lat] if t.scene else None,
+                    "scene_coordinates": [
+                        [t.scene.min_lon, t.scene.max_lat],
+                        [t.scene.max_lon, t.scene.max_lat],
+                        [t.scene.max_lon, t.scene.min_lat],
+                        [t.scene.min_lon, t.scene.min_lat],
+                    ] if t.scene else None,
                 },
                 provenance={
                     "checksum": t.checksum,

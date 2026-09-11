@@ -3,6 +3,13 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { ApiClient } from '../api/client';
 import { EvidenceFirstCandidate } from '../types/api';
+import {
+  SatelliteIcon,
+  LayersIcon,
+  EyeIcon,
+  EyeOffIcon,
+  CalendarIcon,
+} from './Icons';
 
 interface MapViewerProps {
   candidates: EvidenceFirstCandidate[];
@@ -19,7 +26,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [focusSingleTile, setFocusSingleTile] = useState<boolean>(false);
+  const [showAllFootprints, setShowAllFootprints] = useState<boolean>(true);
+  const [activeEpoch, setActiveEpoch] = useState<'T1' | 'T2'>('T1');
 
   // Initialize MapLibre GL instance with 100% offline self-contained style
   useEffect(() => {
@@ -35,7 +43,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
             id: 'tactical-background',
             type: 'background',
             paint: {
-              'background-color': '#0b1120',
+              'background-color': '#070d19',
             },
           },
         ],
@@ -44,14 +52,14 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       const map = new maplibregl.Map({
         container: mapContainer.current,
         style: offlineStyle,
-        center: [73.59, 18.96], // Default Western Ghats AOI
-        zoom: 11,
+        center: [77.58, 28.18], // Jewar Airport Corridor default center
+        zoom: 12,
         attributionControl: false,
       });
 
       map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
       map.addControl(
-        new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }),
+        new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }),
         'bottom-left',
       );
 
@@ -60,7 +68,6 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       });
 
       map.on('error', (e: any) => {
-        // Log map warnings without crashing
         console.warn('MapLibre internal event:', e);
       });
 
@@ -78,54 +85,51 @@ export const MapViewer: React.FC<MapViewerProps> = ({
     };
   }, []);
 
-  // Update candidate vector layers when candidates or selection changes
+  // Update candidate vector layers and raster underlay when candidates or selection changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
 
     const sourceId = 'candidates-source';
     const fillLayerId = 'candidates-fill';
-    const lineLayerId = 'candidates-line';
+    const lineAllLayerId = 'candidates-line-all';
+    const lineSelectedLayerId = 'candidates-line-selected';
     const rasterSourceId = 'selected-candidate-raster-source';
     const rasterLayerId = 'selected-candidate-raster-layer';
 
-    // Filter and deduplicate candidates by spatial footprint
-    let displayCandidates = candidates;
-    if (focusSingleTile && selectedCandidate) {
-      displayCandidates = [selectedCandidate];
-    } else {
-      // Spatial deduplication: if multiple temporal observations share the same bbox, retain one feature
-      const seenBoxes = new Set<string>();
-      const deduped: EvidenceFirstCandidate[] = [];
-      for (const c of candidates) {
-        const boxKey = c.where?.bbox ? c.where.bbox.map((v) => v.toFixed(5)).join(':') : (c.target_id || c.candidate_id);
-        if (!seenBoxes.has(boxKey)) {
-          seenBoxes.add(boxKey);
-          deduped.push(c);
-        } else if (
-          selectedCandidate &&
-          (selectedCandidate.target_id === c.target_id || selectedCandidate.candidate_id === c.candidate_id)
-        ) {
-          const existingIdx = deduped.findIndex(
-            (d) => d.where?.bbox && d.where.bbox.map((v) => v.toFixed(5)).join(':') === boxKey,
-          );
-          if (existingIdx !== -1) {
-            deduped[existingIdx] = c;
-          }
+    // Spatial deduplication: if multiple temporal observations share the same bbox, retain one feature
+    const seenBoxes = new Set<string>();
+    const deduped: EvidenceFirstCandidate[] = [];
+    for (const c of candidates) {
+      const boxKey = c.where?.bbox
+        ? c.where.bbox.map((v) => v.toFixed(5)).join(':')
+        : (c.target_id || c.candidate_id);
+      if (!seenBoxes.has(boxKey)) {
+        seenBoxes.add(boxKey);
+        deduped.push(c);
+      } else if (
+        selectedCandidate &&
+        (selectedCandidate.target_id === c.target_id || selectedCandidate.candidate_id === c.candidate_id)
+      ) {
+        const existingIdx = deduped.findIndex(
+          (d) => d.where?.bbox && d.where.bbox.map((v) => v.toFixed(5)).join(':') === boxKey,
+        );
+        if (existingIdx !== -1) {
+          deduped[existingIdx] = c;
         }
       }
-      displayCandidates = deduped;
     }
 
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: displayCandidates.map((c) => {
+      features: deduped.map((c) => {
         const isSelected =
           selectedCandidate &&
           ((c.candidate_id && selectedCandidate.candidate_id === c.candidate_id) ||
-           (c.target_id && selectedCandidate.target_id === c.target_id) ||
-           (c.where?.bbox && selectedCandidate.where?.bbox &&
-            c.where.bbox.every((v, i) => Math.abs(v - selectedCandidate.where.bbox[i]) < 1e-5)))
+            (c.target_id && selectedCandidate.target_id === c.target_id) ||
+            (c.where?.bbox &&
+              selectedCandidate.where?.bbox &&
+              c.where.bbox.every((v, i) => Math.abs(v - selectedCandidate.where.bbox[i]) < 1e-5)))
             ? 1
             : 0;
 
@@ -153,60 +157,75 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         data: geojson,
       });
 
-      // Semi-transparent footprint fill
+      // 1. Semi-transparent footprint fill (layer visibility controlled by showAllFootprints)
       map.addLayer({
         id: fillLayerId,
         type: 'fill',
         source: sourceId,
+        layout: {
+          visibility: showAllFootprints ? 'visible' : 'none',
+        },
         paint: {
           'fill-color': [
             'case',
             ['==', ['get', 'review_status'], 'CONFIRMED'],
-            '#10b981', // green
+            '#10b981',
             ['==', ['get', 'review_status'], 'REJECTED'],
-            '#ef4444', // red
+            '#ef4444',
             ['==', ['get', 'review_status'], 'FLAGGED_FOR_INSPECTION'],
-            '#f59e0b', // amber
-            '#3b82f6', // blue (pending)
+            '#f59e0b',
+            '#38bdf8',
           ],
           'fill-opacity': [
             'case',
             ['==', ['get', 'isSelected'], 1],
+            0.08,
             0.15,
-            0.25,
           ],
         },
       });
 
-      // High-contrast footprint border
+      // 2. Footprint borders for general candidates (hidden when showAllFootprints is OFF)
       map.addLayer({
-        id: lineLayerId,
+        id: lineAllLayerId,
         type: 'line',
         source: sourceId,
+        filter: ['!=', ['get', 'isSelected'], 1],
+        layout: {
+          visibility: showAllFootprints ? 'visible' : 'none',
+        },
         paint: {
-          'line-color': [
-            'case',
-            ['==', ['get', 'isSelected'], 1],
-            '#facc15', // yellow highlight
-            '#38bdf8', // light blue
-          ],
-          'line-width': [
-            'case',
-            ['==', ['get', 'isSelected'], 1],
-            3,
-            1.5,
-          ],
+          'line-color': '#38bdf8',
+          'line-width': 1.5,
+          'line-opacity': 0.7,
         },
       });
 
-      // Click to select candidate
+      // 3. Highlight border for SELECTED candidate (ALWAYS visible for orientation)
+      map.addLayer({
+        id: lineSelectedLayerId,
+        type: 'line',
+        source: sourceId,
+        filter: ['==', ['get', 'isSelected'], 1],
+        layout: {
+          visibility: 'visible',
+        },
+        paint: {
+          'line-color': '#facc15', // High-visibility yellow
+          'line-width': 2.5,
+          'line-opacity': 0.95,
+        },
+      });
+
+      // Interactive selection
       map.on('click', fillLayerId, (e: any) => {
         if (e.features && e.features[0]) {
           const cid = e.features[0].properties?.candidate_id;
           const tid = e.features[0].properties?.target_id;
           const match = candidates.find(
-            (c) => (cid && (c.candidate_id === cid || c.target_id === cid)) ||
-                   (tid && (c.target_id === tid || c.candidate_id === tid)),
+            (c) =>
+              (cid && (c.candidate_id === cid || c.target_id === cid)) ||
+              (tid && (c.target_id === tid || c.candidate_id === tid)),
           );
           if (match) onSelectCandidate(match);
         }
@@ -221,37 +240,61 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       });
     }
 
-    // Dynamic Sentinel-2 optical raster underlay for selected candidate
-    const bbox = selectedCandidate?.where?.bbox;
-    const hasValidBbox =
-      Array.isArray(bbox) &&
-      bbox.length === 4 &&
-      bbox.every((v) => typeof v === 'number' && !isNaN(v));
+    // Dynamic Full Georeferenced Optical Sentinel-2 Raster Underlay
+    let rasterUrl: string | null = null;
+    let rasterCoords:
+      | [[number, number], [number, number], [number, number], [number, number]]
+      | null = null;
 
-    const tileId = selectedCandidate?.which?.tile_id || selectedCandidate?.target_id;
-    const rasterUrl =
-      selectedCandidate?.evidence?.preview_url ||
-      (tileId ? ApiClient.getTilePreviewUrl(tileId) : null);
+    if (selectedCandidate) {
+      const isChange =
+        selectedCandidate.target_type === 'CHANGE' ||
+        Boolean(selectedCandidate.evidence?.before_scene_preview_url);
 
-    if (selectedCandidate && hasValidBbox && rasterUrl) {
-      const coordinates: [
-        [number, number],
-        [number, number],
-        [number, number],
-        [number, number]
-      ] = selectedCandidate.where.coordinates || [
-        [bbox[0], bbox[3]], // Top-Left: [minLon, maxLat]
-        [bbox[2], bbox[3]], // Top-Right: [maxLon, maxLat]
-        [bbox[2], bbox[1]], // Bottom-Right: [maxLon, minLat]
-        [bbox[0], bbox[1]], // Bottom-Left: [minLon, minLat]
-      ];
+      if (isChange) {
+        if (activeEpoch === 'T1') {
+          rasterUrl =
+            selectedCandidate.evidence?.before_scene_preview_url ||
+            selectedCandidate.evidence?.scene_preview_url ||
+            selectedCandidate.evidence?.preview_url ||
+            null;
+        } else {
+          rasterUrl =
+            selectedCandidate.evidence?.after_scene_preview_url ||
+            selectedCandidate.evidence?.scene_preview_url ||
+            selectedCandidate.evidence?.preview_url ||
+            null;
+        }
+      } else {
+        rasterUrl =
+          selectedCandidate.evidence?.scene_preview_url ||
+          selectedCandidate.evidence?.preview_url ||
+          (selectedCandidate.which?.tile_id
+            ? ApiClient.getTilePreviewUrl(selectedCandidate.which.tile_id)
+            : null);
+      }
 
+      // True georeferenced raster extent in WGS84
+      rasterCoords =
+        selectedCandidate.evidence?.scene_coordinates ||
+        selectedCandidate.where?.coordinates ||
+        (selectedCandidate.where?.bbox
+          ? [
+              [selectedCandidate.where.bbox[0], selectedCandidate.where.bbox[3]], // TL: minLon, maxLat
+              [selectedCandidate.where.bbox[2], selectedCandidate.where.bbox[3]], // TR: maxLon, maxLat
+              [selectedCandidate.where.bbox[2], selectedCandidate.where.bbox[1]], // BR: maxLon, minLat
+              [selectedCandidate.where.bbox[0], selectedCandidate.where.bbox[1]], // BL: minLon, minLat
+            ]
+          : null);
+    }
+
+    if (selectedCandidate && rasterUrl && rasterCoords) {
       const existingRasterSource = map.getSource(rasterSourceId) as maplibregl.ImageSource | undefined;
       if (existingRasterSource && typeof existingRasterSource.updateImage === 'function') {
         try {
           existingRasterSource.updateImage({
             url: rasterUrl,
-            coordinates,
+            coordinates: rasterCoords,
           });
           if (!map.getLayer(rasterLayerId)) {
             const beforeLayer = map.getLayer(fillLayerId) ? fillLayerId : undefined;
@@ -261,8 +304,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
                 type: 'raster',
                 source: rasterSourceId,
                 paint: {
-                  'raster-opacity': 0.95,
-                  'raster-fade-duration': 300,
+                  'raster-opacity': 0.96,
+                  'raster-fade-duration': 250,
                 },
               },
               beforeLayer,
@@ -282,7 +325,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           map.addSource(rasterSourceId, {
             type: 'image',
             url: rasterUrl,
-            coordinates,
+            coordinates: rasterCoords,
           });
           const beforeLayer = map.getLayer(fillLayerId) ? fillLayerId : undefined;
           map.addLayer(
@@ -291,8 +334,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
               type: 'raster',
               source: rasterSourceId,
               paint: {
-                'raster-opacity': 0.95,
-                'raster-fade-duration': 300,
+                'raster-opacity': 0.96,
+                'raster-fade-duration': 250,
               },
             },
             beforeLayer,
@@ -310,19 +353,24 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       }
     }
 
-    // Auto-fit to selected candidate or all candidates
+    // Auto-fit camera: Prioritize full georeferenced scene extent for the selected candidate
     if (selectedCandidate) {
-      const [minLon, minLat, maxLon, maxLat] = selectedCandidate.where.bbox;
+      const targetBbox =
+        selectedCandidate.evidence?.scene_bbox || selectedCandidate.where.bbox;
+      const [minLon, minLat, maxLon, maxLat] = targetBbox;
       map.fitBounds(
         [
           [minLon, minLat],
           [maxLon, maxLat],
         ],
-        { padding: 40, maxZoom: 16.5, duration: 800 },
+        { padding: 40, maxZoom: 15, duration: 800 },
       );
     } else if (candidates.length > 0) {
       const primaryCluster = candidates.filter(
-        (c) => (candidates[0].where.centroid[1] > 25 ? c.where.centroid[1] > 25 : c.where.centroid[1] <= 25),
+        (c) =>
+          candidates[0].where.centroid[1] > 25
+            ? c.where.centroid[1] > 25
+            : c.where.centroid[1] <= 25,
       );
       const targetCandidates = primaryCluster.length > 0 ? primaryCluster : candidates;
       const allLons = targetCandidates.flatMap((c) => [c.where.bbox[0], c.where.bbox[2]]);
@@ -338,39 +386,113 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           [bounds[0], bounds[1]],
           [bounds[2], bounds[3]],
         ],
-        { padding: 50, maxZoom: 14, duration: 800 },
+        { padding: 50, maxZoom: 13.5, duration: 800 },
       );
     }
-  }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate, focusSingleTile]);
+  }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate, activeEpoch]);
+
+  // Deterministic MapLibre layer visibility effect (Phase 2)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+    const visibility = showAllFootprints ? 'visible' : 'none';
+    if (map.getLayer('candidates-fill')) {
+      map.setLayoutProperty('candidates-fill', 'visibility', visibility);
+    }
+    if (map.getLayer('candidates-line-all')) {
+      map.setLayoutProperty('candidates-line-all', 'visibility', visibility);
+    }
+  }, [showAllFootprints, mapLoaded]);
 
   const currentCandidate = selectedCandidate || (candidates.length > 0 ? candidates[0] : null);
   const aoiLabel =
     currentCandidate && currentCandidate.where.centroid[1] > 25
-      ? 'AOI: Jewar Airport Corridor (T43RGM • EPSG:32643)'
-      : 'AOI: Western Ghats, MH (EPSG:32643 / EPSG:4326)';
+      ? 'Jewar Airport Corridor (T43RGM • EPSG:32643)'
+      : 'Western Ghats, MH (EPSG:32643 / EPSG:4326)';
+
+  const isBitemporal =
+    selectedCandidate?.target_type === 'CHANGE' ||
+    Boolean(selectedCandidate?.evidence?.before_date || selectedCandidate?.evidence?.before_scene_preview_url);
+
+  const beforeDateStr = selectedCandidate?.evidence?.before_date || '2023-02-03';
+  const afterDateStr = selectedCandidate?.evidence?.after_date || '2024-11-29';
 
   return (
     <div style={styles.container}>
-      {/* Map Header Overlay */}
+      {/* Map Header Overlay Bar */}
       <div style={styles.overlayBar}>
+        {/* Left: AOI & Satellite Sensor Context */}
         <div style={styles.aoiBadge}>
+          <SatelliteIcon size={16} color="#38bdf8" />
           <span style={styles.dot} />
-          <span>{aoiLabel}</span>
+          <span style={styles.aoiText}>{aoiLabel}</span>
         </div>
+
+        {/* Center: Bitemporal Switcher (T1 / T2) */}
+        {isBitemporal && (
+          <div style={styles.temporalControlGroup}>
+            <button
+              type="button"
+              onClick={() => setActiveEpoch('T1')}
+              style={{
+                ...styles.epochBtn,
+                backgroundColor: activeEpoch === 'T1' ? '#0284c7' : 'rgba(30, 41, 59, 0.85)',
+                color: activeEpoch === 'T1' ? '#ffffff' : '#94a3b8',
+                borderColor: activeEpoch === 'T1' ? '#38bdf8' : '#475569',
+              }}
+              title="Switch main map optical raster to T1 (Before) observation"
+            >
+              <CalendarIcon size={13} color={activeEpoch === 'T1' ? '#ffffff' : '#38bdf8'} />
+              <span>T1 BEFORE</span>
+              <span style={styles.epochDateBadge}>{beforeDateStr}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveEpoch('T2')}
+              style={{
+                ...styles.epochBtn,
+                backgroundColor: activeEpoch === 'T2' ? '#0284c7' : 'rgba(30, 41, 59, 0.85)',
+                color: activeEpoch === 'T2' ? '#ffffff' : '#94a3b8',
+                borderColor: activeEpoch === 'T2' ? '#38bdf8' : '#475569',
+              }}
+              title="Switch main map optical raster to T2 (After) observation"
+            >
+              <CalendarIcon size={13} color={activeEpoch === 'T2' ? '#ffffff' : '#38bdf8'} />
+              <span>T2 AFTER</span>
+              <span style={styles.epochDateBadge}>{afterDateStr}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Right: Layer Visibility & Legend Controls */}
         <div style={styles.headerControls}>
           <button
             type="button"
-            onClick={() => setFocusSingleTile((prev) => !prev)}
+            onClick={() => setShowAllFootprints((prev) => !prev)}
             style={{
-              ...styles.focusBtn,
-              backgroundColor: focusSingleTile ? '#facc15' : 'rgba(30, 41, 59, 0.9)',
-              color: focusSingleTile ? '#0f172a' : '#94a3b8',
-              borderColor: focusSingleTile ? '#eab308' : '#475569',
+              ...styles.toggleBtn,
+              backgroundColor: showAllFootprints
+                ? 'rgba(14, 165, 233, 0.18)'
+                : 'rgba(30, 41, 59, 0.85)',
+              color: showAllFootprints ? '#38bdf8' : '#64748b',
+              borderColor: showAllFootprints ? '#0284c7' : '#475569',
             }}
-            title="Toggle single selected tile isolation mode"
+            title={
+              showAllFootprints
+                ? 'Hide all candidate footprints (keep selected outline)'
+                : 'Show all candidate footprint outlines'
+            }
           >
-            {focusSingleTile ? '🎯 Single Tile Focused' : '🔲 All Footprints'}
+            <LayersIcon size={14} color={showAllFootprints ? '#38bdf8' : '#64748b'} />
+            <span>FOOTPRINTS {showAllFootprints ? 'ON' : 'OFF'}</span>
+            {showAllFootprints ? (
+              <EyeIcon size={13} color="#38bdf8" />
+            ) : (
+              <EyeOffIcon size={13} color="#64748b" />
+            )}
           </button>
+
           <div style={styles.legend}>
             <span style={{ ...styles.legendItem, color: '#38bdf8' }}>■ Pending</span>
             <span style={{ ...styles.legendItem, color: '#10b981' }}>■ Confirmed</span>
@@ -387,7 +509,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       {mapError && (
         <div style={styles.fallbackContainer}>
           <div style={styles.fallbackHeader}>
-            <span style={styles.fallbackIcon}>🛰️</span>
+            <SatelliteIcon size={24} color="#38bdf8" />
             <div>
               <h4 style={styles.fallbackTitle}>Tactical 2D Vector Footprint Display</h4>
               <span style={styles.fallbackSubtitle}>Offline Local Vector Grid</span>
@@ -431,7 +553,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '100%',
     minHeight: '480px',
-    backgroundColor: '#0b1120',
+    backgroundColor: '#070d19',
     overflow: 'hidden',
     borderRadius: '8px',
     border: '1px solid #1e293b',
@@ -450,11 +572,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: '10px',
     padding: '8px 14px',
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    backdropFilter: 'blur(8px)',
+    backgroundColor: 'rgba(11, 17, 32, 0.92)',
+    backdropFilter: 'blur(10px)',
     borderRadius: '6px',
-    border: '1px solid rgba(51, 65, 85, 0.8)',
+    border: '1px solid rgba(51, 65, 85, 0.85)',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
     pointerEvents: 'none',
   },
   aoiBadge: {
@@ -463,15 +587,46 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     fontSize: '0.8rem',
     fontWeight: 600,
-    color: '#94a3b8',
-    letterSpacing: '0.04em',
+    color: '#cbd5e1',
+    letterSpacing: '0.03em',
+    pointerEvents: 'auto',
+  },
+  aoiText: {
+    whiteSpace: 'nowrap',
   },
   dot: {
-    width: '8px',
-    height: '8px',
+    width: '7px',
+    height: '7px',
     borderRadius: '50%',
     backgroundColor: '#10b981',
     boxShadow: '0 0 8px #10b981',
+    flexShrink: 0,
+  },
+  temporalControlGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    pointerEvents: 'auto',
+  },
+  epochBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    fontSize: '0.74rem',
+    fontWeight: 600,
+    borderRadius: '4px',
+    border: '1px solid',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  epochDateBadge: {
+    fontSize: '0.68rem',
+    padding: '1px 5px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    color: '#f8fafc',
+    fontFamily: 'monospace',
   },
   headerControls: {
     display: 'flex',
@@ -479,8 +634,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '14px',
     pointerEvents: 'auto',
   },
-  focusBtn: {
-    pointerEvents: 'auto',
+  toggleBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
@@ -494,14 +648,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   legend: {
     display: 'flex',
-    gap: '12px',
-    fontSize: '0.75rem',
+    gap: '10px',
+    fontSize: '0.74rem',
     fontWeight: 600,
   },
   legendItem: {
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
+    whiteSpace: 'nowrap',
   },
   fallbackContainer: {
     position: 'absolute',
@@ -519,9 +674,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '12px',
     borderBottom: '1px solid #334155',
     paddingBottom: '12px',
-  },
-  fallbackIcon: {
-    fontSize: '1.8rem',
   },
   fallbackTitle: {
     margin: 0,
