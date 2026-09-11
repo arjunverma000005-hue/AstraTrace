@@ -54,6 +54,10 @@ def get_review_queue(
         None,
         description="Filter by decision state: PENDING_REVIEW, CONFIRMED, REJECTED, FLAGGED_FOR_INSPECTION",
     ),
+    status_filter: Optional[ReviewDecision] = Query(
+        None,
+        description="Alias for status filter",
+    ),
     target_type: Optional[str] = Query(
         None,
         description="Filter by target type: TILE or CHANGE",
@@ -64,8 +68,9 @@ def get_review_queue(
 ) -> ReviewQueueResponse:
     """Returns items in the operational analyst queue."""
     service = AnalystReviewService(db=db)
+    active_status = status or status_filter
     return service.get_queue(
-        status_filter=status,
+        status_filter=active_status,
         target_type=target_type,
         limit=limit,
         offset=offset,

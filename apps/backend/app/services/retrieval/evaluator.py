@@ -129,10 +129,11 @@ class RetrievalEvaluator:
             for item in EVALUATION_GROUND_TRUTH:
                 q = item["query"]
                 relevant = item["expected_tile_ids"]
+                col = item.get("collection", "demo_archive")
 
                 # 1. Evaluate Baseline
                 t_b0 = time.perf_counter()
-                b_resp = base_service.search(BaselineSearchRequest(query=q, top_k=k))
+                b_resp = base_service.search(BaselineSearchRequest(query=q, top_k=k, collection=col))
                 b_lat = round((time.perf_counter() - t_b0) * 1000.0, 2)
                 b_ids = [r.tile_id for r in b_resp.results]
 
@@ -149,7 +150,7 @@ class RetrievalEvaluator:
                 # 2. Evaluate Pure Semantic (hybrid_weight=1.0)
                 t_s0 = time.perf_counter()
                 s_resp = sem_service.search_semantic(
-                    SemanticSearchRequest(query=q, top_k=k, hybrid_weight=1.0)
+                    SemanticSearchRequest(query=q, top_k=k, hybrid_weight=1.0, collection=col)
                 )
                 s_lat = round((time.perf_counter() - t_s0) * 1000.0, 2)
                 s_ids = [r.tile_id for r in s_resp.results]
@@ -167,7 +168,7 @@ class RetrievalEvaluator:
                 # 3. Evaluate Hybrid (hybrid_weight=0.65)
                 t_h0 = time.perf_counter()
                 h_resp = sem_service.search_semantic(
-                    SemanticSearchRequest(query=q, top_k=k, hybrid_weight=0.65)
+                    SemanticSearchRequest(query=q, top_k=k, hybrid_weight=0.65, collection=col)
                 )
                 h_lat = round((time.perf_counter() - t_h0) * 1000.0, 2)
                 h_ids = [r.tile_id for r in h_resp.results]

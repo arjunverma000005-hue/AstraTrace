@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from apps.backend.app.core.logging import get_logger
-from apps.backend.app.models.catalog import TileRecord
+from apps.backend.app.models.catalog import SceneRecord, TileRecord
 from apps.backend.app.models.review import AnalystReviewRecord
 from apps.backend.app.schemas.search import (
     BaselineSearchRequest,
@@ -51,14 +51,18 @@ class UnifiedSearchService:
             return None
 
         # Look for co-located tile in an alternate scene (same tile_index, different scene_id)
-        alt_tile = (
+        query = (
             self.db.query(TileRecord)
             .filter(
                 TileRecord.tile_index == tile_db.tile_index,
                 TileRecord.scene_id != tile_db.scene_id,
             )
-            .first()
         )
+        if tile_db.scene and tile_db.scene.collection:
+            query = query.join(SceneRecord, TileRecord.scene_id == SceneRecord.scene_id).filter(
+                SceneRecord.collection == tile_db.scene.collection
+            )
+        alt_tile = query.first()
         if not alt_tile:
             return None
 

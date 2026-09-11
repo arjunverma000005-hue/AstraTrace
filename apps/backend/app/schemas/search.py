@@ -37,6 +37,10 @@ class BaselineSearchRequest(BaseModel):
         default=None,
         description="Satellite sensor identifier (e.g. SENTINEL-2, SENTINEL-1)",
     )
+    collection: Optional[str] = Field(
+        default=None,
+        description="Target collection identifier filter",
+    )
     top_k: int = Field(
         default=10,
         ge=1,

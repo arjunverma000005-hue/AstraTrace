@@ -46,6 +46,7 @@ class TileSearchRequest(BaseModel):
     date_from: Optional[datetime] = Field(None, description="Earliest acquisition timestamp")
     date_to: Optional[datetime] = Field(None, description="Latest acquisition timestamp")
     sensor: Optional[str] = Field(None, description="Filter by satellite sensor")
+    collection: Optional[str] = Field(None, description="Filter by collection identifier")
     max_cloud_cover: Optional[float] = Field(None, ge=0.0, le=100.0, description="Max allowable cloud cover percentage")
     limit: int = Field(50, ge=1, le=500, description="Maximum records to return")
     offset: int = Field(0, ge=0, description="Query offset")

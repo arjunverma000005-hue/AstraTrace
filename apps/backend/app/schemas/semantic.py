@@ -20,6 +20,7 @@ class SemanticSearchRequest(BaseModel):
     date_from: Optional[datetime] = Field(None, description="Earliest observation timestamp")
     date_to: Optional[datetime] = Field(None, description="Latest observation timestamp")
     sensor: Optional[str] = Field(None, description="Satellite sensor filter (e.g. SENTINEL-2)")
+    collection: Optional[str] = Field(None, description="Catalog collection name filter")
     top_k: int = Field(10, ge=1, le=50, description="Maximum results to return")
     min_confidence: float = Field(0.0, ge=0.0, le=1.0, description="Minimum confidence cutoff")
     hybrid_weight: float = Field(

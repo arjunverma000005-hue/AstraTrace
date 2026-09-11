@@ -87,6 +87,7 @@ class BaselineRetrievalService:
             date_from=request.date_from,
             date_to=request.date_to,
             sensor=request.sensor,
+            collection=getattr(request, "collection", None),
             limit=200,
             offset=0,
         )

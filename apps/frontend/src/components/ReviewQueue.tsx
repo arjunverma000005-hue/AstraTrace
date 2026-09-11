@@ -157,7 +157,11 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                     </div>
                   </div>
                   <div style={styles.dateLabel}>
-                    {c.when ? new Date(c.when).toLocaleDateString('en-GB') : 'Unknown Date'}
+                    {c.when ? (
+                      c.when.includes(' to ')
+                        ? c.when.split(' to ').map(d => new Date(d.trim()).toLocaleDateString('en-GB')).join(' → ')
+                        : new Date(c.when).toLocaleDateString('en-GB')
+                    ) : 'Unknown Date'}
                   </div>
                 </div>
               </div>

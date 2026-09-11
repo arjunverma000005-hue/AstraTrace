@@ -201,7 +201,7 @@ class SemanticRetrievalService:
         t_ann0 = time.perf_counter()
         raw_candidates = self.vector_index.search(
             query_vector=query_vector,
-            top_k=min(100, max(20, request.top_k * 2)),
+            top_k=max(self.vector_index.size(), request.top_k * 5),
             min_score=0.0,
         )
         ann_ms = round((time.perf_counter() - t_ann0) * 1000.0, 3)
@@ -233,6 +233,10 @@ class SemanticRetrievalService:
 
             # Sensor filter
             if request.sensor and scene.sensor != request.sensor:
+                continue
+
+            # Collection filter
+            if getattr(request, "collection", None) and scene.collection != request.collection:
                 continue
 
             # Temporal filter

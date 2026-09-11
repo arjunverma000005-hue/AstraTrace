@@ -270,6 +270,10 @@ class CatalogService:
         if request.max_cloud_cover is not None:
             query = query.filter(TileRecord.cloud_cover_percent <= request.max_cloud_cover)
 
+        # Collection Filtering
+        if getattr(request, "collection", None):
+            query = query.filter(SceneRecord.collection == request.collection)
+
         total = query.count()
         tiles = (
             query.order_by(SceneRecord.acquired_at.desc(), TileRecord.tile_index.asc())
