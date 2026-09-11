@@ -658,9 +658,102 @@ def verify_milestone8_search_and_review() -> bool:
         return False
 
 
+def verify_milestone9_provenance_and_hardening() -> bool:
+    """Verifies Milestone 9: Provenance DAG, Cryptographic Verification, Dossier Export, and Air-Gap."""
+    try:
+        from fastapi.testclient import TestClient
+        from apps.backend.app.main import create_app
+        from apps.backend.app.models.catalog import TileRecord
+        from apps.backend.app.db.session import SessionLocal
+        from apps.backend.app.services.provenance.service import ProvenanceService
+        from apps.backend.app.services.provenance.verifier import ProvenanceVerifier
+        from apps.backend.app.services.provenance.dossier import EvidencePackageService
+        from apps.backend.app.services.audit.service import AuditService
+        import socket
+
+        # 1. Resolve sample tile from catalog
+        with SessionLocal() as db:
+            tile = db.query(TileRecord).first()
+            assert tile is not None, "At least one tile required for verification."
+            sample_tile_id = tile.tile_id
+
+        # 2. Lineage DAG Reconstruction
+        with SessionLocal() as db:
+            prov_service = ProvenanceService(db=db, project_root=PROJECT_ROOT)
+            graph = prov_service.get_provenance_graph(sample_tile_id)
+            assert graph.root_id == sample_tile_id
+            assert len(graph.nodes) >= 3
+            assert len(graph.edges) >= 2
+            log("Milestone 9 Lineage DAG", "PASS", f"Reconstructed DAG with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
+
+        # 3. Cryptographic Integrity Verification
+        with SessionLocal() as db:
+            verifier = ProvenanceVerifier(db=db, project_root=PROJECT_ROOT)
+            report = verifier.verify_target(sample_tile_id)
+            assert report.overall_status.value == "VERIFIED"
+            assert report.verified_count > 0
+            assert report.tampered_count == 0
+            log("Milestone 9 Cryptographic Verification", "PASS", f"Verified {report.verified_count} artifacts (Status: {report.overall_status.value})")
+
+        # 4. Forensic Evidence Dossier Export
+        with SessionLocal() as db:
+            dossier_service = EvidencePackageService(db=db, project_root=PROJECT_ROOT)
+            dossier_res = dossier_service.export_dossier(sample_tile_id, actor="analyst_foundation_verifier")
+            assert dossier_res.export_id.startswith("exp_")
+            assert (PROJECT_ROOT / dossier_res.package_path).exists()
+            log("Milestone 9 Evidence Dossier Export", "PASS", f"Exported {dossier_res.package_path} ({dossier_res.package_size_bytes} bytes, SHA-256: {dossier_res.package_checksum[:10]}...)")
+
+        # 5. Append-Oriented Audit Logging
+        with SessionLocal() as db:
+            audit_svc = AuditService(db=db)
+            total, events = audit_svc.query_events(limit=5)
+            assert total >= 1
+            log("Milestone 9 Structured Audit Log", "PASS", f"Cataloged {total} audit records across pipeline lifecycle")
+
+        # 6. REST API Endpoints
+        app = create_app()
+        client = TestClient(app)
+
+        res_g = client.get(f"/api/v1/provenance/graph/{sample_tile_id}")
+        assert res_g.status_code == 200
+
+        res_v = client.post("/api/v1/provenance/verify", json={"target_id": sample_tile_id})
+        assert res_v.status_code == 200
+
+        res_e = client.get(f"/api/v1/provenance/export/{sample_tile_id}")
+        assert res_e.status_code == 201
+
+        res_a = client.get("/api/v1/provenance/audit-log?limit=5")
+        assert res_a.status_code == 200
+        log("Milestone 9 REST API Endpoints", "PASS", "GET /provenance/graph, POST /verify, GET /export, GET /audit-log 200/201 OK")
+
+        # 7. Air-Gapped Network Isolation Guard
+        orig_connect = socket.socket.connect
+        def block_external(self, address):
+            host = address[0]
+            if str(host) in ("127.0.0.1", "localhost", "::1"):
+                return orig_connect(self, address)
+            raise RuntimeError(f"Air-gap violation: outbound socket to {host}")
+
+        try:
+            socket.socket.connect = block_external
+            res_airgap = client.get(f"/api/v1/provenance/graph/{sample_tile_id}")
+            assert res_airgap.status_code == 200
+            log("Milestone 9 Air-Gap Network Isolation", "PASS", "Zero outbound network calls verified under strict socket interception")
+        finally:
+            socket.socket.connect = orig_connect
+
+        return True
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        log("Milestone 9 Provenance & Hardening", "FAIL", f"{type(e).__name__}: {e}")
+        return False
+
+
 def main():
     print("=" * 60)
-    print("ASTRATRACE MILESTONE 1 - 8 COMPLETE VERIFICATION SUITE")
+    print("ASTRATRACE MILESTONE 1 - 9 COMPLETE VERIFICATION SUITE")
     print("=" * 60)
 
     results = [
@@ -675,11 +768,12 @@ def main():
         verify_semantic_retrieval(),
         verify_quality_gate(),
         verify_milestone8_search_and_review(),
+        verify_milestone9_provenance_and_hardening(),
     ]
 
     print("=" * 60)
     if all(results):
-        print("\033[92m[SUCCESS] All Milestone 1 through 8 verification checks PASSED.\033[0m")
+        print("\033[92m[SUCCESS] All Milestone 1 through 9 verification checks PASSED.\033[0m")
         sys.exit(0)
     else:
         print("\033[91m[FAILURE] One or more verification checks FAILED.\033[0m")

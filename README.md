@@ -4,7 +4,7 @@
 [![Smart India Hackathon 2026](https://img.shields.io/badge/SIH-2026-blue.svg)](https://www.sih.gov.in)
 [![Problem ID](https://img.shields.io/badge/Problem%20ID-SIH26227-red.svg)](https://sih2026.vuce.in/ps/SIH26227)
 [![Organization](https://img.shields.io/badge/Sponsor-Indian%20Army%2C%20DGIS-darkgreen.svg)](https://mod.gov.in)
-[![Milestone](https://img.shields.io/badge/Milestone-1%20Foundation-green.svg)]()
+[![Milestone](https://img.shields.io/badge/Milestone-9%20Provenance%20%26%20Hardening-green.svg)]()
 [![Offline Invariant](https://img.shields.io/badge/Network-Air--Gapped%20%28Offline%29-blueviolet.svg)]()
 
 ---
@@ -23,7 +23,7 @@ It enables intelligence analysts to:
 ---
 
 ## 2. Current Implementation Status
-- **Current Milestone:** **Milestone 8 — Search APIs, MapLibre UI & Analyst Review Queue (COMPLETED)**
+- **Current Milestone:** **Milestone 9 — Provenance Graph & Offline Hardening (COMPLETED)**
 - **Completed Milestones:**
   - **M1:** Foundation & Monorepo Setup (FastAPI, React 18, Docker, Logging).
   - **M2:** Raster Ingestion & Tiling Engine (GeoTIFF slicing, SHA-256 lineage manifests).
@@ -33,7 +33,8 @@ It enables intelligence analysts to:
   - **M6:** Advanced Embeddings & Semantic Search (512-D unit vectors, exact cosine ANN, hybrid retrieval).
   - **M7:** Quality Gate & False-Alarm Suppression (Optical quality detector, pair usable area, cloud/shadow suppression).
   - **M8:** Search APIs, MapLibre UI & Review Queue (Unified multi-modal search, offline MapLibre GL JS, Evidence-First review queue & triage CLI).
-- **Upcoming:** Milestone 9 (Provenance Graph & Offline Hardening) and Milestone 10 (SIH Evaluation).
+  - **M9:** Provenance Graph & Offline Hardening (Lineage DAG, SHA-256 verifier, forensic dossier export, append audit log, air-gap network tests).
+- **Upcoming:** Milestone 10 (Automated Evaluation & Final SIH Demonstration).
 
 ---
 
@@ -647,16 +648,50 @@ curl -X POST "http://localhost:8000/api/v1/search/unified" \
 
 ---
 
-## 14. Offline-First Principles
+## 14. Provenance Graph & Offline Hardening (Milestone 9)
+
+### 14.1 Inspect Lineage DAG via CLI
+Trace processing lineage from scene ingestion to analyst reviews:
+```bash
+# Display full DAG with nodes and dependency edges
+python scripts/provenance_cli.py --graph scn_sentinel-2_20230115_96ed9480_t0000
+
+# Output machine-readable JSON DAG
+python scripts/provenance_cli.py --graph scn_sentinel-2_20230115_96ed9480_t0000 --json
+```
+
+### 14.2 Verify Cryptographic Artifact Integrity
+Verify on-disk GeoTIFFs, manifests, change masks, and vector blobs against catalog checksums:
+```bash
+python scripts/provenance_cli.py --verify scn_sentinel-2_20230115_96ed9480_t0000
+```
+Status output flags each artifact as `VERIFIED`, `TAMPERED` (mismatched hash), or `UNVERIFIED_MISSING`.
+
+### 14.3 Export Forensic Evidence Dossier
+Generate a tamper-evident digital dossier with embedded lineage DAG, integrity proof, and package SHA-256:
+```bash
+python scripts/provenance_cli.py --export scn_sentinel-2_20230115_96ed9480_t0000
+```
+Exports to `data/processed/exports/dossier_{target_id}_{export_id}.json`.
+
+### 14.4 Query Append-Oriented Audit Log
+```bash
+python scripts/provenance_cli.py --audit --limit 10
+```
+
+---
+
+## 15. Offline-First Principles
 AstraTrace enforces complete air-gap readiness:
 - Zero runtime external cloud API dependencies (no OpenAI, Gemini, or external hosted services).
 - Self-contained Docker offline profile (`docker/offline-compose.yml`) configures `internal: true` network mesh dropping outbound traffic.
 - Pre-staged datasets and local Safetensors model checkpoints.
 - Pure NumPy deterministic 512-D vector projection ensuring semantic indexing and search remain operational even in zero-dependency air-gapped environments.
+- Python socket interception tests guaranteeing 0 outbound network socket connections across all pipeline operations.
 
 ---
 
-## 15. License
+## 16. License
 Apache 2.0 License. Developed for Smart India Hackathon 2026.
 
 

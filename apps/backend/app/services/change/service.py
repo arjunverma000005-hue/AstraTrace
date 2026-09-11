@@ -175,6 +175,28 @@ class ChangeDetectionService:
             f"in {result['execution_trace']['total_ms']}ms"
         )
 
+        try:
+            from apps.backend.app.services.audit.service import AuditService
+            audit_svc = AuditService(db=self.catalog.db)
+            audit_svc.log_event(
+                event_type="CHANGE_DETECTION",
+                actor="system_detector",
+                action="DETECT_CHANGE",
+                target_id=change_id,
+                target_type="CHANGE",
+                status="SUCCESS",
+                details={
+                    "before_tile_id": prov_before.tile_id,
+                    "after_tile_id": prov_after.tile_id,
+                    "changed_pixels": result["changed_pixels"],
+                    "change_type": result["change_type"],
+                    "composite_change_score": result["composite_change_score"],
+                    "mask_path": mask_out_rel,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to record audit event for change {change_id}: {e}")
+
         return ChangeDetectionResponse(
             change_id=change_id,
             before=prov_before,

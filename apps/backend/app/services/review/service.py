@@ -108,6 +108,27 @@ class AnalystReviewService:
             f"decision={request.decision.value} analyst={request.analyst_id}"
         )
 
+        try:
+            from apps.backend.app.services.audit.service import AuditService
+            audit_svc = AuditService(db=self.db)
+            audit_svc.log_event(
+                event_type="ANALYST_REVIEW",
+                actor=request.analyst_id.strip(),
+                action="SUBMIT_DECISION",
+                target_id=request.target_id,
+                target_type=request.target_type.value,
+                status="SUCCESS",
+                details={
+                    "review_id": review_id,
+                    "decision": request.decision.value,
+                    "notes": request.notes,
+                    "confidence_at_review": confidence_snapshot,
+                    "quality_status_at_review": quality_status_snapshot,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to record audit event for review {review_id}: {e}")
+
         return ReviewRecordResponse(
             review_id=record.review_id,
             target_id=record.target_id,

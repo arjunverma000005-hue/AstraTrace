@@ -66,4 +66,6 @@ def init_db(engine_instance=None):
     """Initializes all registered declarative tables in the database."""
     target_engine = engine_instance or engine
     logger.info(f"Initializing catalog database tables on engine: {target_engine.url.render_as_string(hide_password=True)}")
+    # Ensure all declarative models are imported and registered with Base.metadata
+    import apps.backend.app.models  # noqa: F401
     Base.metadata.create_all(bind=target_engine)
