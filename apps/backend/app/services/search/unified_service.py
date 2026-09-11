@@ -43,6 +43,75 @@ class UnifiedSearchService:
                 self.project_root = current.parents[5]
         else:
             self.project_root = project_root
+        self._pair_cache: Dict[tuple, Dict[str, Any]] = {}
+
+    def _resolve_temporal_pair(self, tile_db: Optional[TileRecord]) -> Optional[Dict[str, Any]]:
+        """Resolves co-located observation tile from alternate temporal epoch and computes change evidence."""
+        if not tile_db:
+            return None
+
+        # Look for co-located tile in an alternate scene (same tile_index, different scene_id)
+        alt_tile = (
+            self.db.query(TileRecord)
+            .filter(
+                TileRecord.tile_index == tile_db.tile_index,
+                TileRecord.scene_id != tile_db.scene_id,
+            )
+            .first()
+        )
+        if not alt_tile:
+            return None
+
+        # Chronological ordering: before (T1) and after (T2)
+        t_cur_dt = tile_db.scene.acquired_at if tile_db.scene else None
+        t_alt_dt = alt_tile.scene.acquired_at if alt_tile.scene else None
+
+        if t_alt_dt and t_cur_dt and t_alt_dt <= t_cur_dt:
+            before_tile = alt_tile
+            after_tile = tile_db
+        else:
+            before_tile = tile_db
+            after_tile = alt_tile
+
+        cache_key = (before_tile.tile_id, after_tile.tile_id)
+        if cache_key in self._pair_cache:
+            return self._pair_cache[cache_key]
+
+        try:
+            from apps.backend.app.schemas.change import ChangeDetectionRequest
+            from apps.backend.app.services.change.service import ChangeDetectionService
+
+            change_svc = ChangeDetectionService(db=self.db, project_root=self.project_root)
+            pair_req = ChangeDetectionRequest(
+                before_tile_id=before_tile.tile_id,
+                after_tile_id=after_tile.tile_id,
+                apply_morphology=True,
+                generate_mask=True,
+            )
+            change_resp = change_svc.detect_tile_pair(pair_req)
+
+            when_str = None
+            if before_tile.scene and before_tile.scene.acquired_at and after_tile.scene and after_tile.scene.acquired_at:
+                d1 = before_tile.scene.acquired_at.strftime("%Y-%m-%d")
+                d2 = after_tile.scene.acquired_at.strftime("%Y-%m-%d")
+                when_str = f"{d1} to {d2}"
+
+            result = {
+                "change_id": change_resp.change_id,
+                "before_tile_id": before_tile.tile_id,
+                "after_tile_id": after_tile.tile_id,
+                "mask_url": change_resp.mask_url,
+                "changed_pixels": change_resp.metrics.changed_pixels,
+                "change_percent": change_resp.metrics.change_percent,
+                "change_type": change_resp.metrics.change_type,
+                "composite_change_score": change_resp.metrics.composite_change_score,
+                "when": when_str,
+            }
+            self._pair_cache[cache_key] = result
+            return result
+        except Exception as e:
+            logger.warning(f"Could not resolve temporal change pair for {tile_db.tile_id}: {e}")
+            return None
 
     def search(self, request: UnifiedSearchRequest) -> UnifiedSearchResponse:
         """Executes a unified search request and returns structured Evidence-First candidates."""
@@ -165,11 +234,52 @@ class UnifiedSearchService:
                         ]],
                     }
 
+                    temporal_pair = self._resolve_temporal_pair(tile_db)
+                    target_type = "CHANGE" if temporal_pair else "TILE"
+
+                    why_dict: Dict[str, Any] = {
+                        "semantic_score": r.semantic_score,
+                        "cosine_sim": r.cosine_sim,
+                        "baseline_score": r.baseline_score or 0.0,
+                        "hybrid_score": r.hybrid_score,
+                    }
+                    provenance_dict: Dict[str, Any] = {
+                        "checksum": r.checksum,
+                        "model_name": s_res.model_info.get("model_name", "RemoteCLIP-ResNet50") if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "model_name", "RemoteCLIP-ResNet50"),
+                        "dimension": s_res.model_info.get("dimension", 512) if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "dimension", 512),
+                    }
+                    which_dict: Dict[str, Any] = {
+                        "sensor": r.sensor,
+                        "scene_id": r.scene_id,
+                        "tile_id": r.tile_id,
+                    }
+                    mask_url = None
+                    when_val = tile_db.scene.acquired_at.isoformat() if tile_db and tile_db.scene and tile_db.scene.acquired_at else None
+
+                    if temporal_pair:
+                        why_dict["before_tile_id"] = temporal_pair["before_tile_id"]
+                        why_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+                        why_dict["changed_pixels"] = temporal_pair["changed_pixels"]
+                        why_dict["change_percent"] = temporal_pair["change_percent"]
+                        why_dict["change_type"] = temporal_pair["change_type"]
+                        why_dict["composite_change_score"] = temporal_pair["composite_change_score"]
+
+                        provenance_dict["before_tile_id"] = temporal_pair["before_tile_id"]
+                        provenance_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+                        provenance_dict["change_id"] = temporal_pair["change_id"]
+
+                        which_dict["before_tile_id"] = temporal_pair["before_tile_id"]
+                        which_dict["after_tile_id"] = temporal_pair["after_tile_id"]
+
+                        mask_url = temporal_pair["mask_url"]
+                        if temporal_pair.get("when"):
+                            when_val = temporal_pair["when"]
+
                     candidates.append(
                         EvidenceFirstCandidate(
                             candidate_id=f"cand_{r.tile_id}",
                             target_id=r.tile_id,
-                            target_type="TILE",
+                            target_type=target_type,
                             rank=idx + 1,
                             what=f"Target Semantic Match (Sim: {r.cosine_sim:.3f})",
                             where={
@@ -178,33 +288,20 @@ class UnifiedSearchService:
                                 "geometry": geometry,
                                 "crs": "EPSG:32643",
                             },
-                            when=tile_db.scene.acquired_at.isoformat() if tile_db and tile_db.scene and tile_db.scene.acquired_at else None,
-                            which={
-                                "sensor": r.sensor,
-                                "scene_id": r.scene_id,
-                                "tile_id": r.tile_id,
-                            },
-                            why={
-                                "semantic_score": r.semantic_score,
-                                "cosine_sim": r.cosine_sim,
-                                "baseline_score": r.baseline_score or 0.0,
-                                "hybrid_score": r.hybrid_score,
-                            },
+                            when=when_val,
+                            which=which_dict,
+                            why=why_dict,
                             confidence=round(r.hybrid_score, 4),
                             quality_status=qual_status,
                             quality_flags=["SEMANTIC_ALIGNED"] if r.cosine_sim > 0.1 else [],
                             evidence={
                                 "preview_url": f"/api/v1/catalog/tiles/{r.tile_id}/preview",
-                                "mask_url": None,
+                                "mask_url": mask_url,
                                 "usable_fraction": usable_frac,
                                 "cloud_fraction": round(cloud_pct / 100.0, 4),
                                 "shadow_fraction": 0.0,
                             },
-                            provenance={
-                                "checksum": r.checksum,
-                                "model_name": s_res.model_info.get("model_name", "RemoteCLIP-ResNet50") if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "model_name", "RemoteCLIP-ResNet50"),
-                                "dimension": s_res.model_info.get("dimension", 512) if isinstance(s_res.model_info, dict) else getattr(s_res.model_info, "dimension", 512),
-                            },
+                            provenance=provenance_dict,
                             review_status=review_map.get(r.tile_id, "PENDING_REVIEW"),
                         )
                     )
