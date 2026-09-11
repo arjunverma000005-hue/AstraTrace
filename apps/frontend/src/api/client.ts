@@ -14,6 +14,7 @@ import {
   ReviewHistoryResponse,
   SimilarTilesRequest,
   SimilarTilesResponse,
+  EvidencePackageExportResponse,
 } from '../types/api';
 
 const API_BASE_URL = '/api/v1';
@@ -174,6 +175,27 @@ export class ApiClient {
     } catch (err: unknown) {
       if (err instanceof Error) throw err;
       throw new Error('Failed to search similar tiles');
+    }
+  }
+
+  /**
+   * Exports an offline, air-gapped forensic evidence dossier for a target entity.
+   */
+  static async exportDossier(targetId: string): Promise<EvidencePackageExportResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/provenance/export/${encodeURIComponent(targetId)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Dossier export error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to export forensic evidence dossier');
     }
   }
 

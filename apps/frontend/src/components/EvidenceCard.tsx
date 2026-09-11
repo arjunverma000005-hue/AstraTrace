@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ApiClient } from '../api/client';
-import { EvidenceFirstCandidate, ReviewDecision, SemanticTileResult } from '../types/api';
+import {
+  EvidenceFirstCandidate,
+  ReviewDecision,
+  SemanticTileResult,
+  EvidencePackageExportResponse,
+} from '../types/api';
 
 interface EvidenceCardProps {
   candidate: EvidenceFirstCandidate | null;
@@ -22,9 +27,24 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   const [isLoadingSimilar, setIsLoadingSimilar] = useState<boolean>(false);
   const [similarError, setSimilarError] = useState<string | null>(null);
 
+  const [isExportingDossier, setIsExportingDossier] = useState<boolean>(false);
+  const [dossierExportResult, setDossierExportResult] = useState<EvidencePackageExportResponse | null>(null);
+  const [dossierExportError, setDossierExportError] = useState<string | null>(null);
+
+  const [maskError, setMaskError] = useState<boolean>(false);
+  const [beforeError, setBeforeError] = useState<boolean>(false);
+  const [afterError, setAfterError] = useState<boolean>(false);
+  const [previewError, setPreviewError] = useState<boolean>(false);
+
   useEffect(() => {
     setSimilarResults(null);
     setSimilarError(null);
+    setDossierExportResult(null);
+    setDossierExportError(null);
+    setMaskError(false);
+    setBeforeError(false);
+    setAfterError(false);
+    setPreviewError(false);
   }, [candidate?.target_id]);
 
   const handleFindSimilar = async () => {
@@ -39,6 +59,32 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       setSimilarError(err instanceof Error ? err.message : 'Failed to search similar sites');
     } finally {
       setIsLoadingSimilar(false);
+    }
+  };
+
+  const handleDownloadDossier = async () => {
+    if (!candidate) return;
+    setIsExportingDossier(true);
+    setDossierExportError(null);
+    try {
+      const res = await ApiClient.exportDossier(candidate.target_id);
+      setDossierExportResult(res);
+
+      // Trigger client-side JSON download of the verified dossier
+      const jsonStr = JSON.stringify(res, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `dossier_${candidate.target_id}_${res.export_id}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setDossierExportError(err instanceof Error ? err.message : 'Failed to export evidence dossier');
+    } finally {
+      setIsExportingDossier(false);
     }
   };
 
@@ -79,6 +125,32 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   };
 
   const previewUrl = ApiClient.getTilePreviewUrl(candidate.target_id);
+
+  const isChangeEvent =
+    candidate.target_type === 'CHANGE' ||
+    candidate.target_id.startsWith('chg_') ||
+    candidate.target_id.startsWith('qchg_') ||
+    Boolean(candidate.evidence.mask_url);
+
+  const beforeTileId =
+    (candidate.why?.before_tile_id as string) ||
+    (candidate.provenance?.before_tile_id as string) ||
+    (candidate.which?.tile_id as string) ||
+    candidate.target_id;
+
+  const afterTileId =
+    (candidate.why?.after_tile_id as string) ||
+    (candidate.provenance?.after_tile_id as string) ||
+    null;
+
+  const maskUrl =
+    candidate.evidence.mask_url ||
+    (isChangeEvent ? ApiClient.getChangeMaskUrl(candidate.target_id) : '');
+
+  const changedPixels = candidate.why?.changed_pixels as number | undefined;
+  const changePercent = candidate.why?.change_percent as number | undefined;
+  const changeType = (candidate.why?.change_type as string) || candidate.what;
+  const compositeScore = (candidate.why?.composite_change_score as number) ?? candidate.confidence;
 
   return (
     <div style={styles.container}>
@@ -145,34 +217,188 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       <div style={styles.body}>
         {activeTab === 'OVERVIEW' && (
           <div style={styles.sectionCol}>
-            {/* Visual Evidence Imagery Preview */}
-            <div style={styles.visualCard}>
-              <div style={styles.visualHeader}>
-                <span style={styles.sectionLabel}>OPTICAL SATELLITE PREVIEW</span>
-                <span style={styles.visualSub}>Sentinel-2 RGB (B4-B3-B2 2%-98% Stretch)</span>
+            {/* Visual Evidence Section: Bitemporal Comparison or Single-Epoch Preview */}
+            {isChangeEvent ? (
+              <div style={styles.visualCard}>
+                <div style={styles.visualHeader}>
+                  <span style={styles.sectionLabel}>BITEMPORAL CHANGE OBSERVATION (T1 vs T2)</span>
+                  <span style={styles.visualSub}>Spectral Differencing & Morphology Filter</span>
+                </div>
+
+                {/* Split-screen Before (T1) and After (T2) Images */}
+                <div style={styles.splitGrid}>
+                  <div style={styles.splitCol}>
+                    <div style={styles.splitHeader}>
+                      <span style={styles.epochBadgeT1}>EPOCH T1 (PRE-EVENT)</span>
+                      <span style={styles.splitMeta} title={beforeTileId}>{beforeTileId}</span>
+                    </div>
+                    <div style={styles.splitImageWrapper}>
+                      {beforeError ? (
+                        <div style={styles.imageFallbackBox}>
+                          <span style={styles.fallbackIcon}>🛰️</span>
+                          <span style={styles.fallbackText}>Observation T1 ({beforeTileId})</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={ApiClient.getTilePreviewUrl(beforeTileId)}
+                          alt={`Before T1 ${beforeTileId}`}
+                          style={styles.previewImg}
+                          onError={() => setBeforeError(true)}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={styles.splitCol}>
+                    <div style={styles.splitHeader}>
+                      <span style={styles.epochBadgeT2}>EPOCH T2 (POST-EVENT)</span>
+                      <span style={styles.splitMeta} title={afterTileId || 'Paired Temporal Epoch'}>
+                        {afterTileId || 'Paired Temporal Epoch'}
+                      </span>
+                    </div>
+                    <div style={styles.splitImageWrapper}>
+                      {afterError || !afterTileId ? (
+                        <div style={styles.imageFallbackBox}>
+                          <span style={styles.fallbackIcon}>🛰️</span>
+                          <span style={styles.fallbackText}>
+                            {afterTileId ? `Observation T2 (${afterTileId})` : 'Paired Surveillance Epoch'}
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={ApiClient.getTilePreviewUrl(afterTileId)}
+                          alt={`After T2 ${afterTileId}`}
+                          style={styles.previewImg}
+                          onError={() => setAfterError(true)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Binary Change Mask Container */}
+                <div style={styles.maskSection}>
+                  <div style={styles.maskHeader}>
+                    <span style={styles.sectionLabel}>BINARY CHANGE MASK</span>
+                    <span style={styles.visualSub}>Pure-NumPy 8-Connected Component Filtered</span>
+                  </div>
+                  <div style={styles.maskImageWrapper}>
+                    {maskError ? (
+                      <div style={styles.imageFallbackBox}>
+                        <span style={styles.fallbackIcon}>⬛</span>
+                        <span style={styles.fallbackText}>Change mask artifact pending generation or not on disk</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={maskUrl}
+                        alt={`Change mask for ${candidate.target_id}`}
+                        style={styles.maskImg}
+                        onError={() => setMaskError(true)}
+                      />
+                    )}
+                  </div>
+                  {/* Change metrics summary bar */}
+                  <div style={styles.changeMetricsRow}>
+                    <div style={styles.metricItem}>
+                      <span style={styles.metricLabel}>PHYSICAL TYPE</span>
+                      <span style={styles.metricValue}>{changeType}</span>
+                    </div>
+                    {changedPixels !== undefined && (
+                      <div style={styles.metricItem}>
+                        <span style={styles.metricLabel}>CHANGED PIXELS</span>
+                        <span style={styles.metricValue}>
+                          {changedPixels.toLocaleString()} px {changePercent !== undefined ? `(${(changePercent * 100).toFixed(2)}%)` : ''}
+                        </span>
+                      </div>
+                    )}
+                    <div style={styles.metricItem}>
+                      <span style={styles.metricLabel}>CHANGE SCORE</span>
+                      <span style={styles.metricValue}>
+                        {typeof compositeScore === 'number' ? compositeScore.toFixed(4) : String(compositeScore)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div style={styles.imageWrapper}>
-                <img
-                  src={previewUrl}
-                  alt={`Preview of ${candidate.target_id}`}
-                  style={styles.previewImg}
-                  onError={(e) => {
-                    // Fallback to placeholder if thumbnail is generating
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+            ) : (
+              <div style={styles.visualCard}>
+                <div style={styles.visualHeader}>
+                  <span style={styles.sectionLabel}>OPTICAL SATELLITE PREVIEW (SINGLE EPOCH)</span>
+                  <span style={styles.visualSub}>Sentinel-2 RGB (B4-B3-B2 2%-98% Stretch)</span>
+                </div>
+                <div style={styles.imageWrapper}>
+                  {previewError ? (
+                    <div style={styles.imageFallbackBox}>
+                      <span style={styles.fallbackIcon}>🛰️</span>
+                      <span style={styles.fallbackText}>Optical preview thumbnail unavailable</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt={`Preview of ${candidate.target_id}`}
+                      style={styles.previewImg}
+                      onError={() => setPreviewError(true)}
+                    />
+                  )}
+                </div>
+                <div style={styles.singleEpochBanner}>
+                  <span style={styles.singleEpochTitle}>
+                    Single Observation Epoch • Sensor: <strong>{candidate.which.sensor}</strong> • Acquired:{' '}
+                    <strong>{candidate.when ? new Date(candidate.when).toLocaleDateString() : 'N/A'}</strong>
+                  </span>
+                  <span style={styles.singleEpochSub}>
+                    Baseline acquisition established. Bitemporal change detection available upon pairing with surveillance epoch T2.
+                  </span>
+                </div>
               </div>
+            )}
+
+            {/* Action Bar: Find Similar Sites + Download Evidence Dossier */}
+            <div style={styles.actionBarGrid}>
+              <button
+                onClick={handleFindSimilar}
+                disabled={isLoadingSimilar}
+                style={styles.findSimilarActionBtn}
+                title="Search vector index for semantically and visually similar satellite observations"
+              >
+                {isLoadingSimilar ? '⏳ Searching 512-D Index...' : '🔍 Find Similar Sites (512-D)'}
+              </button>
+              <button
+                onClick={handleDownloadDossier}
+                disabled={isExportingDossier}
+                style={styles.downloadDossierBtn}
+                title="Generate and download self-contained, air-gapped forensic evidence dossier sealed with SHA-256"
+              >
+                {isExportingDossier ? '⏳ Compiling Dossier...' : '📥 Download Evidence Dossier'}
+              </button>
             </div>
 
-            {/* Find Similar Sites Action Bar */}
-            <button
-              onClick={handleFindSimilar}
-              disabled={isLoadingSimilar}
-              style={styles.findSimilarActionBtn}
-              title="Search vector index for semantically and visually similar satellite observations"
-            >
-              {isLoadingSimilar ? '⏳ Searching 512-D Index...' : '🔍 Find Similar Sites across Catalog (512-D)'}
-            </button>
+            {/* Dossier Download Feedback */}
+            {dossierExportResult && (
+              <div style={styles.dossierSuccessAlert}>
+                <div style={styles.dossierSuccessHeader}>
+                  <span style={styles.dossierSuccessTitle}>✓ FORENSIC EVIDENCE DOSSIER SEALED & DOWNLOADED</span>
+                  <span style={styles.dossierBadge}>{dossierExportResult.export_id}</span>
+                </div>
+                <div style={styles.dossierDetails}>
+                  <div style={styles.dossierHashRow}>
+                    <span style={styles.dossierHashLabel}>SHA-256 SEAL:</span>
+                    <code style={styles.dossierHash}>{dossierExportResult.package_checksum}</code>
+                  </div>
+                  <div style={styles.dossierMetaRow}>
+                    <span>Target: <strong>{dossierExportResult.target_id}</strong> ({dossierExportResult.target_type})</span>
+                    <span>Size: <strong>{(dossierExportResult.package_size_bytes / 1024).toFixed(1)} KB</strong></span>
+                    <span>Exported: <strong>{new Date(dossierExportResult.exported_at).toLocaleTimeString()}</strong></span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {dossierExportError && (
+              <div style={styles.errorAlert}>
+                ⚠️ Dossier Export Failed: {dossierExportError}
+              </div>
+            )}
 
             {/* Evidence-First 8 Dimensions Grid */}
             <div style={styles.dimsGrid}>
@@ -266,6 +492,48 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                     </div>
                   ))}
               </div>
+            </div>
+
+            {/* Air-Gapped Evidence Dossier Export Card */}
+            <div style={styles.dossierExportBox}>
+              <div style={styles.dossierBoxHeader}>
+                <div>
+                  <h5 style={styles.scoreTitle}>Air-Gapped Forensic Intelligence Dossier</h5>
+                  <span style={styles.similarSub}>
+                    Generates deterministic JSON package bundling lineage DAG, SHA-256 checksums, and mission verification metadata.
+                  </span>
+                </div>
+                <button
+                  onClick={handleDownloadDossier}
+                  disabled={isExportingDossier}
+                  style={styles.downloadDossierBtn}
+                >
+                  {isExportingDossier ? '⏳ Exporting...' : '📥 Download Dossier'}
+                </button>
+              </div>
+
+              {dossierExportResult && (
+                <div style={{ ...styles.dossierSuccessAlert, marginTop: '8px' }}>
+                  <div style={styles.dossierSuccessHeader}>
+                    <span style={styles.dossierSuccessTitle}>✓ DOSSIER EXPORTED: {dossierExportResult.export_id}</span>
+                  </div>
+                  <div style={styles.dossierDetails}>
+                    <div style={styles.dossierHashRow}>
+                      <span style={styles.dossierHashLabel}>SHA-256 SEAL:</span>
+                      <code style={styles.dossierHash}>{dossierExportResult.package_checksum}</code>
+                    </div>
+                    <div style={styles.dossierMetaRow}>
+                      <span>Target: <strong>{dossierExportResult.target_id}</strong> ({dossierExportResult.target_type})</span>
+                      <span>Size: <strong>{(dossierExportResult.package_size_bytes / 1024).toFixed(1)} KB</strong></span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {dossierExportError && (
+                <div style={{ ...styles.errorAlert, marginTop: '8px' }}>
+                  ⚠️ Dossier Export Failed: {dossierExportError}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -887,6 +1155,249 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.62rem',
     fontFamily: 'monospace',
     color: '#64748b',
+  },
+  splitGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '8px',
+  },
+  splitCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  splitHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  epochBadgeT1: {
+    fontSize: '0.62rem',
+    fontWeight: 800,
+    letterSpacing: '0.05em',
+    padding: '2px 5px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    border: '1px solid #0284c7',
+  },
+  epochBadgeT2: {
+    fontSize: '0.62rem',
+    fontWeight: 800,
+    letterSpacing: '0.05em',
+    padding: '2px 5px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    color: '#34d399',
+    border: '1px solid #10b981',
+  },
+  splitMeta: {
+    fontSize: '0.65rem',
+    fontFamily: 'monospace',
+    color: '#94a3b8',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '120px',
+  },
+  splitImageWrapper: {
+    width: '100%',
+    height: '140px',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    backgroundColor: '#0b1120',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid #1e293b',
+  },
+  maskSection: {
+    marginTop: '6px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    paddingTop: '8px',
+    borderTop: '1px solid #1e293b',
+  },
+  maskHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  maskImageWrapper: {
+    width: '100%',
+    height: '140px',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid #334155',
+  },
+  maskImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    imageRendering: 'pixelated',
+  },
+  changeMetricsRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0b1120',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    border: '1px solid #1e293b',
+  },
+  metricItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  metricLabel: {
+    fontSize: '0.62rem',
+    fontWeight: 700,
+    color: '#64748b',
+    letterSpacing: '0.04em',
+  },
+  metricValue: {
+    fontSize: '0.76rem',
+    fontWeight: 700,
+    color: '#f1f5f9',
+    fontFamily: 'monospace',
+  },
+  imageFallbackBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '4px',
+    padding: '10px',
+    color: '#64748b',
+    textAlign: 'center',
+    fontSize: '0.72rem',
+    height: '100%',
+  },
+  fallbackIcon: {
+    fontSize: '1.2rem',
+  },
+  fallbackText: {
+    color: '#94a3b8',
+    fontFamily: 'monospace',
+  },
+  singleEpochBanner: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    padding: '6px 8px',
+    backgroundColor: '#0b1120',
+    borderRadius: '4px',
+    border: '1px solid #1e293b',
+  },
+  singleEpochTitle: {
+    fontSize: '0.72rem',
+    color: '#e2e8f0',
+  },
+  singleEpochSub: {
+    fontSize: '0.68rem',
+    color: '#64748b',
+  },
+  actionBarGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '8px',
+  },
+  downloadDossierBtn: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    color: '#34d399',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    textAlign: 'center',
+    letterSpacing: '0.03em',
+    transition: 'all 0.15s ease',
+  },
+  dossierSuccessAlert: {
+    padding: '8px 10px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    border: '1px solid #059669',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  dossierSuccessHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dossierSuccessTitle: {
+    fontSize: '0.72rem',
+    fontWeight: 800,
+    letterSpacing: '0.04em',
+    color: '#34d399',
+  },
+  dossierBadge: {
+    fontSize: '0.65rem',
+    fontFamily: 'monospace',
+    padding: '1px 5px',
+    borderRadius: '3px',
+    backgroundColor: '#064e3b',
+    color: '#a7f3d0',
+  },
+  dossierDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    fontSize: '0.7rem',
+    color: '#cbd5e1',
+  },
+  dossierHashRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  dossierHashLabel: {
+    color: '#94a3b8',
+    fontWeight: 700,
+    fontSize: '0.65rem',
+  },
+  dossierHash: {
+    fontFamily: 'monospace',
+    fontSize: '0.68rem',
+    color: '#34d399',
+    backgroundColor: '#0f172a',
+    padding: '2px 4px',
+    borderRadius: '3px',
+    border: '1px solid #1e293b',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  dossierMetaRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '0.68rem',
+    color: '#94a3b8',
+  },
+  dossierExportBox: {
+    padding: '12px',
+    borderRadius: '6px',
+    backgroundColor: '#111827',
+    border: '1px solid #1e293b',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  dossierBoxHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '10px',
   },
   emptyContainer: {
     display: 'flex',

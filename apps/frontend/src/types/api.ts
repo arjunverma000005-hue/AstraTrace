@@ -173,3 +173,14 @@ export interface SimilarTilesResponse {
   execution_trace: Record<string, number>;
 }
 
+export interface EvidencePackageExportResponse {
+  export_id: string;
+  target_id: string;
+  target_type: string;
+  package_path: string;
+  package_checksum: string;
+  package_size_bytes: number;
+  exported_at: string;
+  contents_summary: Record<string, unknown>;
+}
+
