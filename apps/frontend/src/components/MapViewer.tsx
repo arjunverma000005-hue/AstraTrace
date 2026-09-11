@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { ApiClient } from '../api/client';
 import { EvidenceFirstCandidate } from '../types/api';
 
 interface MapViewerProps {
@@ -84,6 +85,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
     const sourceId = 'candidates-source';
     const fillLayerId = 'candidates-fill';
     const lineLayerId = 'candidates-line';
+    const rasterSourceId = 'selected-candidate-raster-source';
+    const rasterLayerId = 'selected-candidate-raster-layer';
 
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -129,8 +132,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           'fill-opacity': [
             'case',
             ['==', ['get', 'isSelected'], 1],
-            0.65,
-            0.25,
+            0.35,
+            0.2,
           ],
         },
       });
@@ -172,6 +175,95 @@ export const MapViewer: React.FC<MapViewerProps> = ({
       map.on('mouseleave', fillLayerId, () => {
         map.getCanvas().style.cursor = '';
       });
+    }
+
+    // Dynamic Sentinel-2 optical raster underlay for selected candidate
+    const bbox = selectedCandidate?.where?.bbox;
+    const hasValidBbox =
+      Array.isArray(bbox) &&
+      bbox.length === 4 &&
+      bbox.every((v) => typeof v === 'number' && !isNaN(v));
+
+    const tileId = selectedCandidate?.which?.tile_id || selectedCandidate?.target_id;
+    const rasterUrl =
+      selectedCandidate?.evidence?.preview_url ||
+      (tileId ? ApiClient.getTilePreviewUrl(tileId) : null);
+
+    if (selectedCandidate && hasValidBbox && rasterUrl) {
+      const coordinates: [
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number]
+      ] = [
+        [bbox[0], bbox[3]], // Top-Left: [minLon, maxLat]
+        [bbox[2], bbox[3]], // Top-Right: [maxLon, maxLat]
+        [bbox[2], bbox[1]], // Bottom-Right: [maxLon, minLat]
+        [bbox[0], bbox[1]], // Bottom-Left: [minLon, minLat]
+      ];
+
+      const existingRasterSource = map.getSource(rasterSourceId) as maplibregl.ImageSource | undefined;
+      if (existingRasterSource && typeof existingRasterSource.updateImage === 'function') {
+        try {
+          existingRasterSource.updateImage({
+            url: rasterUrl,
+            coordinates,
+          });
+          if (!map.getLayer(rasterLayerId)) {
+            const beforeLayer = map.getLayer(fillLayerId) ? fillLayerId : undefined;
+            map.addLayer(
+              {
+                id: rasterLayerId,
+                type: 'raster',
+                source: rasterSourceId,
+                paint: {
+                  'raster-opacity': 0.95,
+                  'raster-fade-duration': 300,
+                },
+              },
+              beforeLayer,
+            );
+          }
+        } catch (err) {
+          console.warn('MapLibre raster update notice:', err);
+        }
+      } else {
+        try {
+          if (map.getLayer(rasterLayerId)) {
+            map.removeLayer(rasterLayerId);
+          }
+          if (map.getSource(rasterSourceId)) {
+            map.removeSource(rasterSourceId);
+          }
+          map.addSource(rasterSourceId, {
+            type: 'image',
+            url: rasterUrl,
+            coordinates,
+          });
+          const beforeLayer = map.getLayer(fillLayerId) ? fillLayerId : undefined;
+          map.addLayer(
+            {
+              id: rasterLayerId,
+              type: 'raster',
+              source: rasterSourceId,
+              paint: {
+                'raster-opacity': 0.95,
+                'raster-fade-duration': 300,
+              },
+            },
+            beforeLayer,
+          );
+        } catch (err) {
+          console.warn('MapLibre raster layer add notice:', err);
+        }
+      }
+    } else {
+      if (map.getLayer(rasterLayerId)) {
+        map.removeLayer(rasterLayerId);
+      }
+      if (map.getSource(rasterSourceId)) {
+        map.removeSource(rasterSourceId);
+      }
     }
 
     // Auto-fit to selected candidate or all candidates
