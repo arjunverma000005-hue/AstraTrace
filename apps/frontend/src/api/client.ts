@@ -12,6 +12,8 @@ import {
   SubmitReviewRequest,
   ReviewRecordResponse,
   ReviewHistoryResponse,
+  SimilarTilesRequest,
+  SimilarTilesResponse,
 } from '../types/api';
 
 const API_BASE_URL = '/api/v1';
@@ -140,6 +142,38 @@ export class ApiClient {
     } catch (err: unknown) {
       if (err instanceof Error) throw err;
       throw new Error('Failed to fetch review history');
+    }
+  }
+
+  /**
+   * Searches for visually and semantically similar satellite tiles given a reference tile ID.
+   */
+  static async searchSimilarTiles(
+    referenceTileId: string,
+    topK: number = 5,
+    minConfidence: number = 0.0,
+  ): Promise<SimilarTilesResponse> {
+    try {
+      const payload: SimilarTilesRequest = {
+        reference_tile_id: referenceTileId,
+        top_k: topK,
+        min_confidence: minConfidence,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/search/similar-tiles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Similar tiles search error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to search similar tiles');
     }
   }
 

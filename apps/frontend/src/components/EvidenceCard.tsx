@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApiClient } from '../api/client';
-import { EvidenceFirstCandidate, ReviewDecision } from '../types/api';
+import { EvidenceFirstCandidate, ReviewDecision, SemanticTileResult } from '../types/api';
 
 interface EvidenceCardProps {
   candidate: EvidenceFirstCandidate | null;
@@ -16,7 +16,31 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SCORES' | 'PROVENANCE'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SCORES' | 'PROVENANCE' | 'SIMILAR'>('OVERVIEW');
+
+  const [similarResults, setSimilarResults] = useState<SemanticTileResult[] | null>(null);
+  const [isLoadingSimilar, setIsLoadingSimilar] = useState<boolean>(false);
+  const [similarError, setSimilarError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSimilarResults(null);
+    setSimilarError(null);
+  }, [candidate?.target_id]);
+
+  const handleFindSimilar = async () => {
+    if (!candidate) return;
+    setActiveTab('SIMILAR');
+    setIsLoadingSimilar(true);
+    setSimilarError(null);
+    try {
+      const res = await ApiClient.searchSimilarTiles(candidate.target_id, 5);
+      setSimilarResults(res.results);
+    } catch (err: unknown) {
+      setSimilarError(err instanceof Error ? err.message : 'Failed to search similar sites');
+    } finally {
+      setIsLoadingSimilar(false);
+    }
+  };
 
   if (!candidate) {
     return (
@@ -104,6 +128,16 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
           >
             Provenance & Audit
           </button>
+          <button
+            onClick={() => setActiveTab('SIMILAR')}
+            style={{
+              ...styles.tabBtn,
+              borderBottom: activeTab === 'SIMILAR' ? '2px solid #38bdf8' : 'none',
+              color: activeTab === 'SIMILAR' ? '#38bdf8' : '#94a3b8',
+            }}
+          >
+            Similar Sites (512-D)
+          </button>
         </div>
       </div>
 
@@ -129,6 +163,16 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 />
               </div>
             </div>
+
+            {/* Find Similar Sites Action Bar */}
+            <button
+              onClick={handleFindSimilar}
+              disabled={isLoadingSimilar}
+              style={styles.findSimilarActionBtn}
+              title="Search vector index for semantically and visually similar satellite observations"
+            >
+              {isLoadingSimilar ? '⏳ Searching 512-D Index...' : '🔍 Find Similar Sites across Catalog (512-D)'}
+            </button>
 
             {/* Evidence-First 8 Dimensions Grid */}
             <div style={styles.dimsGrid}>
@@ -223,6 +267,98 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'SIMILAR' && (
+          <div style={styles.sectionCol}>
+            <div style={styles.similarHeader}>
+              <div>
+                <h5 style={styles.scoreTitle}>Similar Satellite Sites (512-D Cosine Retrieval)</h5>
+                <span style={styles.similarSub}>
+                  Reference: <code style={styles.inlineCode}>{candidate.target_id}</code>
+                </span>
+              </div>
+              <button
+                onClick={handleFindSimilar}
+                disabled={isLoadingSimilar}
+                style={styles.refreshSimilarBtn}
+              >
+                {isLoadingSimilar ? 'Searching...' : '↻ Re-query'}
+              </button>
+            </div>
+
+            {isLoadingSimilar && (
+              <div style={styles.loadingBox}>
+                <span style={styles.spinner}>⏳</span>
+                <span>Searching 512-D vector store for semantically similar sites...</span>
+              </div>
+            )}
+
+            {similarError && (
+              <div style={styles.errorAlert}>{similarError}</div>
+            )}
+
+            {!isLoadingSimilar && !similarError && similarResults !== null && similarResults.length === 0 && (
+              <div style={styles.emptySimilarBox}>
+                <span>No similar sites found above similarity cutoff.</span>
+              </div>
+            )}
+
+            {!isLoadingSimilar && similarResults && similarResults.length > 0 && (
+              <div style={styles.similarList}>
+                {similarResults.map((item) => (
+                  <div key={item.tile_id} style={styles.similarCard}>
+                    <div style={styles.similarCardHeader}>
+                      <span style={styles.similarRank}>#{item.rank}</span>
+                      <span style={styles.similarSimBadge}>
+                        {(item.cosine_sim * 100).toFixed(1)}% SIMILARITY
+                      </span>
+                    </div>
+
+                    <div style={styles.similarCardBody}>
+                      <div style={styles.similarThumbWrapper}>
+                        <img
+                          src={ApiClient.getTilePreviewUrl(item.tile_id)}
+                          alt={`Preview of ${item.tile_id}`}
+                          style={styles.similarThumb}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                      <div style={styles.similarDetails}>
+                        <div style={styles.similarTileId} title={item.tile_id}>
+                          {item.tile_id}
+                        </div>
+                        <div style={styles.similarMeta}>
+                          <span>Sensor: {item.sensor}</span>
+                          <span>Acquired: {item.acquired_at ? new Date(item.acquired_at).toLocaleDateString() : 'N/A'}</span>
+                          <span>Cosine: {item.cosine_sim.toFixed(4)}</span>
+                        </div>
+                        <div style={styles.similarHash}>
+                          SHA: {item.checksum.substring(0, 16)}...
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isLoadingSimilar && similarResults === null && (
+              <div style={styles.emptySimilarBox}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                  Extract 512-dimensional vector embedding for target observation <code style={styles.inlineCode}>{candidate.target_id}</code> and retrieve the most semantically and visually similar satellite tiles across the catalog.
+                </p>
+                <button
+                  onClick={handleFindSimilar}
+                  style={styles.triggerSimilarBtn}
+                >
+                  🔍 Execute Similarity Search
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -597,13 +733,160 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.75rem',
     border: '1px solid #ef4444',
   },
-  successAlert: {
-    padding: '6px 10px',
+  findSimilarActionBtn: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #0284c7',
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    color: '#38bdf8',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    textAlign: 'center',
+    letterSpacing: '0.03em',
+    transition: 'all 0.15s ease',
+  },
+  similarHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: '8px',
+    borderBottom: '1px solid #1e293b',
+  },
+  similarSub: {
+    fontSize: '0.72rem',
+    color: '#94a3b8',
+  },
+  inlineCode: {
+    fontFamily: 'monospace',
+    color: '#38bdf8',
+    backgroundColor: '#1e293b',
+    padding: '2px 4px',
+    borderRadius: '3px',
+  },
+  refreshSimilarBtn: {
+    padding: '4px 8px',
     borderRadius: '4px',
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    color: '#34d399',
+    border: '1px solid #334155',
+    backgroundColor: '#1e293b',
+    color: '#f8fafc',
+    fontSize: '0.72rem',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  loadingBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '16px',
+    backgroundColor: '#111827',
+    borderRadius: '6px',
+    border: '1px solid #1e293b',
+    color: '#94a3b8',
+    fontSize: '0.78rem',
+  },
+  spinner: {
+    fontSize: '1rem',
+  },
+  emptySimilarBox: {
+    padding: '20px',
+    textAlign: 'center',
+    backgroundColor: '#111827',
+    borderRadius: '6px',
+    border: '1px solid #1e293b',
+    color: '#94a3b8',
+    fontSize: '0.78rem',
+  },
+  triggerSimilarBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #0284c7',
+    backgroundColor: '#0284c7',
+    color: '#f8fafc',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  similarList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  similarCard: {
+    padding: '10px',
+    borderRadius: '6px',
+    backgroundColor: '#111827',
+    border: '1px solid #1e293b',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  similarCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  similarRank: {
+    fontSize: '0.72rem',
+    fontWeight: 800,
+    color: '#38bdf8',
+  },
+  similarSimBadge: {
+    fontSize: '0.68rem',
+    fontWeight: 800,
+    letterSpacing: '0.04em',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    border: '1px solid #0284c7',
+  },
+  similarCardBody: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+  },
+  similarThumbWrapper: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    backgroundColor: '#0b1120',
+    flexShrink: 0,
+    border: '1px solid #1e293b',
+  },
+  similarThumb: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  similarDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    overflow: 'hidden',
+    flex: 1,
+  },
+  similarTileId: {
     fontSize: '0.75rem',
-    border: '1px solid #10b981',
+    fontFamily: 'monospace',
+    color: '#f8fafc',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  similarMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    fontSize: '0.68rem',
+    color: '#94a3b8',
+    gap: '1px',
+  },
+  similarHash: {
+    fontSize: '0.62rem',
+    fontFamily: 'monospace',
+    color: '#64748b',
   },
   emptyContainer: {
     display: 'flex',

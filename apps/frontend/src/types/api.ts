@@ -138,3 +138,38 @@ export interface ReviewHistoryResponse {
   history: ReviewRecordResponse[];
 }
 
+export interface SimilarTilesRequest {
+  reference_tile_id?: string;
+  reference_raster_path?: string;
+  bbox?: [number, number, number, number];
+  sensor?: string;
+  top_k?: number;
+  min_confidence?: number;
+}
+
+export interface SemanticTileResult {
+  rank: number;
+  tile_id: string;
+  scene_id: string;
+  semantic_score: number;
+  cosine_sim: number;
+  baseline_score?: number | null;
+  hybrid_score: number;
+  bounds_wgs84: number[];
+  geometry: Record<string, unknown>;
+  checksum: string;
+  acquired_at?: string | null;
+  sensor: string;
+  path: string;
+}
+
+export interface SimilarTilesResponse {
+  query_id: string;
+  search_mode: string;
+  model_info: Record<string, unknown>;
+  total_indexed: number;
+  returned_results: number;
+  results: SemanticTileResult[];
+  execution_trace: Record<string, number>;
+}
+
