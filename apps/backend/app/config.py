@@ -3,7 +3,7 @@
 Loads settings from environment variables and provides strict typing and validation.
 """
 from typing import List, Union
-from pydantic import field_validator
+from pydantic import Field, AliasChoices, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Server Binding
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = Field(default=8000, validation_alias=AliasChoices("PORT", "api_port", "API_PORT"))
 
     # Operational Invariant: Offline Mode
     offline_mode: bool = True

@@ -3,8 +3,11 @@
 SIH 2026 | Problem ID: SIH26227
 """
 import uuid
+from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import FileResponse, JSONResponse
+from starlette.staticfiles import StaticFiles
 from apps.backend.app.api.v1.router import router as api_v1_router
 from apps.backend.app.config import settings
 from apps.backend.app.core.errors import register_error_handlers
@@ -52,16 +55,44 @@ def create_app() -> FastAPI:
     # Mount API Routers
     app.include_router(api_v1_router, prefix="/api/v1")
 
-    @app.get("/", tags=["Root"])
-    async def root():
-        """Root status ping."""
-        return {
-            "app": settings.app_name,
-            "status": "online",
-            "version": settings.app_version,
-            "offline_mode": settings.offline_mode,
-            "docs": "/docs" if settings.app_env != "production" else "disabled",
-        }
+    # Static files & SPA routing for unified production deployment
+    frontend_dist = Path(__file__).resolve().parent.parent.parent.parent / "apps" / "frontend" / "dist"
+    if not frontend_dist.exists():
+        frontend_dist = Path("apps/frontend/dist")
+
+    if frontend_dist.exists() and (frontend_dist / "index.html").exists():
+        assets_dir = frontend_dist / "assets"
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa(request: Request, full_path: str):
+            if full_path.startswith("api/") or full_path in ("docs", "redoc", "openapi.json"):
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            # Content negotiation for root path: return JSON status if not browser HTML request
+            if full_path == "" and "text/html" not in request.headers.get("accept", ""):
+                return {
+                    "app": settings.app_name,
+                    "status": "online",
+                    "version": settings.app_version,
+                    "offline_mode": settings.offline_mode,
+                    "docs": "/docs" if settings.app_env != "production" else "disabled",
+                }
+            target_file = frontend_dist / full_path
+            if full_path and target_file.is_file():
+                return FileResponse(target_file)
+            return FileResponse(frontend_dist / "index.html")
+    else:
+        @app.get("/", tags=["Root"])
+        async def root():
+            """Root status ping."""
+            return {
+                "app": settings.app_name,
+                "status": "online",
+                "version": settings.app_version,
+                "offline_mode": settings.offline_mode,
+                "docs": "/docs" if settings.app_env != "production" else "disabled",
+            }
 
     return app
 

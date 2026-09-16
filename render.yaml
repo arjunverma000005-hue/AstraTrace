@@ -1,0 +1,22 @@
+# ====================================================================
+# AstraTrace — Render Blueprint Specification
+# SIH 2026 | Problem ID: SIH26227
+# ====================================================================
+
+services:
+  - type: web
+    name: astratrace
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: OFFLINE_MODE
+        value: "true"
+      - key: DATABASE_URL
+        value: sqlite:///./data/catalog.db
+      - key: CORS_ORIGINS
+        value: "*"
+    healthCheckPath: /api/v1/health

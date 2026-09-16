@@ -1,0 +1,199 @@
+{
+  "export_id": "exp_cc859201ea7a",
+  "export_standard": "AstraTrace-SIH26227-Evidence-Dossier-v1.0",
+  "exported_at": "2026-09-11T18:48:57.807044+00:00",
+  "mission_profile": {
+    "problem_id": "SIH26227",
+    "authority": "Ministry of Defence / Indian Army DGIS",
+    "air_gapped_mode": true,
+    "offline_guarantee": "Zero external cloud APIs, strictly local deterministic computation"
+  },
+  "target": {
+    "target_id": "scn_sentinel-2_20241129_39b10de5_t0008",
+    "target_type": "TILE"
+  },
+  "provenance_graph": {
+    "root_id": "scn_sentinel-2_20241129_39b10de5_t0008",
+    "root_type": "TILE",
+    "nodes": [
+      {
+        "id": "scn_sentinel-2_20241129_39b10de5_t0008",
+        "node_type": "TILE",
+        "label": "Tile 8 (scn_sentinel-2_20241129_39b10de5_t0008)",
+        "metadata": {
+          "scene_id": "scn_sentinel-2_20241129_39b10de5",
+          "tile_index": 8,
+          "pixel_window": [
+            693,
+            231,
+            256,
+            256
+          ],
+          "cloud_cover_percent": 0.0,
+          "nodata_percent": 0.0,
+          "usable_fraction": 1.0,
+          "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0008.tif",
+          "bounds_wgs84": [
+            77.598404,
+            28.181442,
+            77.625021,
+            28.205024
+          ]
+        },
+        "checksum": "23c7b355d348b87b901bb2a9a9e79efe376301b3677cae5d3754279793c1695a",
+        "timestamp": "2026-09-11T17:45:23.459928"
+      },
+      {
+        "id": "scn_sentinel-2_20241129_39b10de5",
+        "node_type": "SCENE",
+        "label": "Scene scn_sentinel-2_20241129_39b10de5 (SENTINEL-2)",
+        "metadata": {
+          "sensor": "SENTINEL-2",
+          "collection": "real_sentinel2_l2a",
+          "crs": "EPSG:32643",
+          "dimensions": [
+            1024,
+            1024,
+            4
+          ],
+          "resolution_meters": 10.0,
+          "bbox_wgs84": [
+            77.526735,
+            28.132871,
+            77.633167,
+            28.227179
+          ],
+          "source_uri": "data/samples/real/real_s2a_20241129_jewar.tif",
+          "manifest_path": "data/processed/scn_sentinel-2_20241129_39b10de5/manifest.json",
+          "tiles_count": 25,
+          "status": "INDEXED"
+        },
+        "checksum": "39b10de58d16de537ab4ab391d978be2d2c170255f2972e80edf3253fa874dfa",
+        "timestamp": "2024-11-29T05:32:01"
+      },
+      {
+        "id": "emb_440e16ec4421",
+        "node_type": "EMBEDDING",
+        "label": "Embedding: AstraTrace-Offline-Baseline-v1",
+        "metadata": {
+          "model_name": "AstraTrace-Offline-Baseline-v1",
+          "model_version": "1.0.0",
+          "dimension": 512
+        },
+        "checksum": "c415c8e090d98acab9068543e019bc1f56221594c27b767a7db6631e762eed8e",
+        "timestamp": "2026-09-11T17:45:47.277513"
+      },
+      {
+        "id": "qual_scn_sentinel-2_20241129_39b10de5_t0008",
+        "node_type": "QUALITY_ASSESSMENT",
+        "label": "Optical Quality: USABLE",
+        "metadata": {
+          "cloud_fraction": 0.0,
+          "usable_fraction": 1.0,
+          "status": "USABLE",
+          "quality_flags": [
+            "CLEAR"
+          ]
+        },
+        "checksum": null,
+        "timestamp": "2026-09-11T17:45:23.459928"
+      }
+    ],
+    "edges": [
+      {
+        "source": "scn_sentinel-2_20241129_39b10de5_t0008",
+        "target": "scn_sentinel-2_20241129_39b10de5",
+        "edge_type": "DERIVED_FROM",
+        "metadata": {
+          "operation": "georeferenced_tiling",
+          "overlap": 25
+        }
+      },
+      {
+        "source": "emb_440e16ec4421",
+        "target": "scn_sentinel-2_20241129_39b10de5_t0008",
+        "edge_type": "INDEXED_BY",
+        "metadata": null
+      },
+      {
+        "source": "qual_scn_sentinel-2_20241129_39b10de5_t0008",
+        "target": "scn_sentinel-2_20241129_39b10de5_t0008",
+        "edge_type": "EVALUATED_BY",
+        "metadata": null
+      }
+    ],
+    "summary": {
+      "root_id": "scn_sentinel-2_20241129_39b10de5_t0008",
+      "root_type": "TILE",
+      "total_nodes": 4,
+      "total_edges": 3,
+      "node_types": {
+        "SCENE": 1,
+        "TILE": 1,
+        "EMBEDDING": 1,
+        "RETRIEVAL_QUERY": 0,
+        "CHANGE_EVENT": 0,
+        "QUALITY_ASSESSMENT": 1,
+        "ANALYST_REVIEW": 0,
+        "EVIDENCE_PACKAGE": 0
+      }
+    }
+  },
+  "integrity_verification": {
+    "target_id": "scn_sentinel-2_20241129_39b10de5_t0008",
+    "target_type": "TILE",
+    "overall_status": "VERIFIED",
+    "total_artifacts": 4,
+    "verified_count": 4,
+    "tampered_count": 0,
+    "missing_count": 0,
+    "artifacts": [
+      {
+        "artifact_id": "scn_sentinel-2_20241129_39b10de5_t0008",
+        "artifact_type": "TILE_GEOTIFF",
+        "file_path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0008.tif",
+        "recorded_checksum": "23c7b355d348b87b901bb2a9a9e79efe376301b3677cae5d3754279793c1695a",
+        "computed_checksum": "23c7b355d348b87b901bb2a9a9e79efe376301b3677cae5d3754279793c1695a",
+        "status": "VERIFIED",
+        "details": "Cryptographic hash matches catalog checksum exactly"
+      },
+      {
+        "artifact_id": "scn_sentinel-2_20241129_39b10de5",
+        "artifact_type": "RAW_SCENE_GEOTIFF",
+        "file_path": "data/samples/real/real_s2a_20241129_jewar.tif",
+        "recorded_checksum": "39b10de58d16de537ab4ab391d978be2d2c170255f2972e80edf3253fa874dfa",
+        "computed_checksum": "39b10de58d16de537ab4ab391d978be2d2c170255f2972e80edf3253fa874dfa",
+        "status": "VERIFIED",
+        "details": "Cryptographic hash matches catalog checksum exactly"
+      },
+      {
+        "artifact_id": "manifest_scn_sentinel-2_20241129_39b10de5",
+        "artifact_type": "INGESTION_MANIFEST",
+        "file_path": "data/processed/scn_sentinel-2_20241129_39b10de5/manifest.json",
+        "recorded_checksum": "37975542ec0e344170c6f7dd57c252709febffe88e42d37fe8a4fd37f8b388d3",
+        "computed_checksum": "37975542ec0e344170c6f7dd57c252709febffe88e42d37fe8a4fd37f8b388d3",
+        "status": "VERIFIED",
+        "details": "Manifest verified: tile scn_sentinel-2_20241129_39b10de5_t0008 registered with matching SHA-256"
+      },
+      {
+        "artifact_id": "emb_440e16ec4421",
+        "artifact_type": "VECTOR_EMBEDDING_BLOB",
+        "file_path": "db://embeddings/emb_440e16ec4421",
+        "recorded_checksum": "c415c8e090d98acab9068543e019bc1f56221594c27b767a7db6631e762eed8e",
+        "computed_checksum": "c415c8e090d98acab9068543e019bc1f56221594c27b767a7db6631e762eed8e",
+        "status": "VERIFIED",
+        "details": "Model: AstraTrace-Offline-Baseline-v1 (dim 512)"
+      }
+    ],
+    "verified_at": "2026-09-11T18:48:57.869478+00:00",
+    "execution_ms": 53.409
+  },
+  "forensic_summary": {
+    "total_lineage_nodes": 4,
+    "total_lineage_edges": 3,
+    "verification_status": "VERIFIED",
+    "verified_artifacts": 4,
+    "tampered_artifacts": 0,
+    "missing_artifacts": 0
+  }
+}

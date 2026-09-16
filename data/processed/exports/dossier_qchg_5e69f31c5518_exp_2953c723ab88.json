@@ -1,0 +1,81 @@
+{
+  "export_id": "exp_2953c723ab88",
+  "export_standard": "AstraTrace-SIH26227-Evidence-Dossier-v1.0",
+  "exported_at": "2026-09-11T11:44:52.437238+00:00",
+  "mission_profile": {
+    "problem_id": "SIH26227",
+    "authority": "Ministry of Defence / Indian Army DGIS",
+    "air_gapped_mode": true,
+    "offline_guarantee": "Zero external cloud APIs, strictly local deterministic computation"
+  },
+  "target": {
+    "target_id": "qchg_5e69f31c5518",
+    "target_type": "CHANGE_EVENT"
+  },
+  "provenance_graph": {
+    "root_id": "qchg_5e69f31c5518",
+    "root_type": "CHANGE_EVENT",
+    "nodes": [
+      {
+        "id": "qchg_5e69f31c5518",
+        "node_type": "CHANGE_EVENT",
+        "label": "Change Detection: qchg_5e69f31c5518",
+        "metadata": {
+          "before_tile_id": null,
+          "after_tile_id": null,
+          "mask_path": null,
+          "change_metrics": {}
+        },
+        "checksum": null,
+        "timestamp": "2026-09-11T11:44:52.478224+00:00"
+      }
+    ],
+    "edges": [],
+    "summary": {
+      "root_id": "qchg_5e69f31c5518",
+      "root_type": "CHANGE_EVENT",
+      "total_nodes": 1,
+      "total_edges": 0,
+      "node_types": {
+        "SCENE": 0,
+        "TILE": 0,
+        "EMBEDDING": 0,
+        "RETRIEVAL_QUERY": 0,
+        "CHANGE_EVENT": 1,
+        "QUALITY_ASSESSMENT": 0,
+        "ANALYST_REVIEW": 0,
+        "EVIDENCE_PACKAGE": 0
+      }
+    }
+  },
+  "integrity_verification": {
+    "target_id": "qchg_5e69f31c5518",
+    "target_type": "CHANGE_EVENT",
+    "overall_status": "UNVERIFIED_MISSING",
+    "total_artifacts": 1,
+    "verified_count": 0,
+    "tampered_count": 0,
+    "missing_count": 1,
+    "artifacts": [
+      {
+        "artifact_id": "mask_qchg_5e69f31c5518",
+        "artifact_type": "CHANGE_MASK_PNG",
+        "file_path": "data/processed/changes/qchg_5e69f31c5518.png",
+        "recorded_checksum": "RECORDED_UNKNOWN",
+        "computed_checksum": null,
+        "status": "UNVERIFIED_MISSING",
+        "details": "Change mask file missing at data/processed/changes/qchg_5e69f31c5518.png"
+      }
+    ],
+    "verified_at": "2026-09-11T11:44:52.533548+00:00",
+    "execution_ms": 58.168
+  },
+  "forensic_summary": {
+    "total_lineage_nodes": 1,
+    "total_lineage_edges": 0,
+    "verification_status": "UNVERIFIED_MISSING",
+    "verified_artifacts": 0,
+    "tampered_artifacts": 0,
+    "missing_artifacts": 1
+  }
+}

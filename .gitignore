@@ -99,3 +99,16 @@ Desktop.ini
 *.swp
 *.swo
 *.tsbuildinfo
+
+# Curated Demo Datasets & Offline Metadata (Whitelisted for cloud deployment)
+!data/catalog.db
+!data/processed/
+!data/processed/**
+!data/processed/**/*.tif
+!data/processed/**/*.png
+!data/processed/**/*.json
+!data/processed/**/*.npz
+!data/samples/
+!data/samples/**
+!data/samples/**/*.tif
+!data/samples/**/*.json

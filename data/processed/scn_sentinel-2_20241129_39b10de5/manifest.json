@@ -1,0 +1,535 @@
+{
+  "scene_id": "scn_sentinel-2_20241129_39b10de5",
+  "sensor": "SENTINEL-2",
+  "collection": "real_sentinel2_l2a",
+  "acquired_at": "2024-11-29T05:32:01+00:00",
+  "source_uri": "data/samples/real/real_s2a_20241129_jewar.tif",
+  "crs": "EPSG:32643",
+  "dimensions": [
+    1024,
+    1024,
+    4
+  ],
+  "bbox_wgs84": [
+    77.526735,
+    28.132871,
+    77.633167,
+    28.227179
+  ],
+  "scene_checksum": "39b10de58d16de537ab4ab391d978be2d2c170255f2972e80edf3253fa874dfa",
+  "tile_size": 256,
+  "overlap": 25,
+  "tiles_count": 25,
+  "ingested_at": "2026-09-11T17:43:25.599939+00:00",
+  "tiles": [
+    {
+      "tile_index": 0,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0000",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0000.tif",
+      "bounds_wgs84": [
+        77.528363,
+        28.203608,
+        77.554973,
+        28.227179
+      ],
+      "pixel_window": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "a2737074b9809fc01fa9f5376c4985ab5a4249a3b1d3123b29edf9dbe8012411"
+    },
+    {
+      "tile_index": 1,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0001",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0001.tif",
+      "bounds_wgs84": [
+        77.551879,
+        28.203167,
+        77.578493,
+        28.226742
+      ],
+      "pixel_window": [
+        231,
+        0,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "e64b078d643048c169acada626e0eb37932f017f3dc83b0645d52629544cef14"
+    },
+    {
+      "tile_index": 2,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0002",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0002.tif",
+      "bounds_wgs84": [
+        77.575394,
+        28.202721,
+        77.602013,
+        28.2263
+      ],
+      "pixel_window": [
+        462,
+        0,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.4,
+      "nodata_percent": 0.0,
+      "checksum": "2de1b70c4a877d669b5bf0c59c298306b2e08486cbefce4f32eadf2e2ec186b1"
+    },
+    {
+      "tile_index": 3,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0003",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0003.tif",
+      "bounds_wgs84": [
+        77.598908,
+        28.202272,
+        77.625531,
+        28.225855
+      ],
+      "pixel_window": [
+        693,
+        0,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.15,
+      "nodata_percent": 0.0,
+      "checksum": "d0cccabcb31c569be552da28369450768ab359ba57a0f33fad5bed287056eb95"
+    },
+    {
+      "tile_index": 4,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0004",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0004.tif",
+      "bounds_wgs84": [
+        77.622422,
+        28.202125,
+        77.633167,
+        28.225406
+      ],
+      "pixel_window": [
+        924,
+        0,
+        100,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "ab4c7249def232080639c308a359bdb68d61043b34df0bb1f86840e076e04581"
+    },
+    {
+      "tile_index": 5,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0005",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0005.tif",
+      "bounds_wgs84": [
+        77.527873,
+        28.182776,
+        77.554477,
+        28.206347
+      ],
+      "pixel_window": [
+        0,
+        231,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.01,
+      "nodata_percent": 0.0,
+      "checksum": "5bbdf5226e244db6aaeb2547f57833d6c9a3119974c40aa036cd533a0bc74533"
+    },
+    {
+      "tile_index": 6,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0006",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0006.tif",
+      "bounds_wgs84": [
+        77.551384,
+        28.182335,
+        77.577993,
+        28.20591
+      ],
+      "pixel_window": [
+        231,
+        231,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.02,
+      "nodata_percent": 0.0,
+      "checksum": "8b7f44dbee2036d89c97ca00c3cc3b109e33da5e7c6101d3895b75c5f51cda5f"
+    },
+    {
+      "tile_index": 7,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0007",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0007.tif",
+      "bounds_wgs84": [
+        77.574894,
+        28.181891,
+        77.601507,
+        28.205469
+      ],
+      "pixel_window": [
+        462,
+        231,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.28,
+      "nodata_percent": 0.0,
+      "checksum": "1d493306e6b7da69070e4e6d003c1518ead0abd0a7ed71d8925ad316061d6660"
+    },
+    {
+      "tile_index": 8,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0008",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0008.tif",
+      "bounds_wgs84": [
+        77.598404,
+        28.181442,
+        77.625021,
+        28.205024
+      ],
+      "pixel_window": [
+        693,
+        231,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "23c7b355d348b87b901bb2a9a9e79efe376301b3677cae5d3754279793c1695a"
+    },
+    {
+      "tile_index": 9,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0009",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0009.tif",
+      "bounds_wgs84": [
+        77.621913,
+        28.181295,
+        77.632656,
+        28.204575
+      ],
+      "pixel_window": [
+        924,
+        231,
+        100,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "f57c6d2984af6c7644ab90233b3c767639aaa1d4f701eb8592b3d343bf72de02"
+    },
+    {
+      "tile_index": 10,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0010",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0010.tif",
+      "bounds_wgs84": [
+        77.527383,
+        28.161945,
+        77.553982,
+        28.185515
+      ],
+      "pixel_window": [
+        0,
+        462,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "61c453ae1e473232e749fb776bb1db53d12aa1ad1a23a9a8aab0d2d6bf294e95"
+    },
+    {
+      "tile_index": 11,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0011",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0011.tif",
+      "bounds_wgs84": [
+        77.550889,
+        28.161504,
+        77.577492,
+        28.185078
+      ],
+      "pixel_window": [
+        231,
+        462,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "ef5b3051c127201654c6d4ccfa69d041e474968bb0dd4d1df150b54b03ce514c"
+    },
+    {
+      "tile_index": 12,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0012",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0012.tif",
+      "bounds_wgs84": [
+        77.574395,
+        28.16106,
+        77.601003,
+        28.184638
+      ],
+      "pixel_window": [
+        462,
+        462,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 1.48,
+      "nodata_percent": 0.0,
+      "checksum": "363ca553463e196ae1e73b682de30d9a2a35f1d6a46b2f103931aeecccec12d1"
+    },
+    {
+      "tile_index": 13,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0013",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0013.tif",
+      "bounds_wgs84": [
+        77.5979,
+        28.160611,
+        77.624512,
+        28.184193
+      ],
+      "pixel_window": [
+        693,
+        462,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.49,
+      "nodata_percent": 0.0,
+      "checksum": "170501a375eb55ee48d9e19f55757d70103883e7d693db7251e1665f5227b033"
+    },
+    {
+      "tile_index": 14,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0014",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0014.tif",
+      "bounds_wgs84": [
+        77.621405,
+        28.160465,
+        77.632145,
+        28.183745
+      ],
+      "pixel_window": [
+        924,
+        462,
+        100,
+        256
+      ],
+      "cloud_cover_percent": 1.47,
+      "nodata_percent": 0.0,
+      "checksum": "9b55db3d7e9cc24eb16c7e4595db885002e3cd14041b496d5b4ee0581255699d"
+    },
+    {
+      "tile_index": 15,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0015",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0015.tif",
+      "bounds_wgs84": [
+        77.526893,
+        28.141113,
+        77.553487,
+        28.164683
+      ],
+      "pixel_window": [
+        0,
+        693,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "abf8053926dd8e3390eccca35e84a750537bade03d57499db6d3d0c770acb7ed"
+    },
+    {
+      "tile_index": 16,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0016",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0016.tif",
+      "bounds_wgs84": [
+        77.550395,
+        28.140673,
+        77.576993,
+        28.164246
+      ],
+      "pixel_window": [
+        231,
+        693,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "d2c1adcfc1eec70e9c6b7becbd6c2bb6e602461a8795192751b8a11eb36427ad"
+    },
+    {
+      "tile_index": 17,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0017",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0017.tif",
+      "bounds_wgs84": [
+        77.573896,
+        28.140228,
+        77.600498,
+        28.163806
+      ],
+      "pixel_window": [
+        462,
+        693,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.01,
+      "nodata_percent": 0.0,
+      "checksum": "b7f613509d9d74ee2509991f86b2ebabb2bf0d146b770d91fe761f1c75db5b7f"
+    },
+    {
+      "tile_index": 18,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0018",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0018.tif",
+      "bounds_wgs84": [
+        77.597397,
+        28.13978,
+        77.624004,
+        28.163362
+      ],
+      "pixel_window": [
+        693,
+        693,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.01,
+      "nodata_percent": 0.0,
+      "checksum": "e8aebebc6bd67c04fe00f23a43dd3980c22a64e64aa917f20aab5dbb9f993f25"
+    },
+    {
+      "tile_index": 19,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0019",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0019.tif",
+      "bounds_wgs84": [
+        77.620897,
+        28.139634,
+        77.631635,
+        28.162914
+      ],
+      "pixel_window": [
+        924,
+        693,
+        100,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "8bf97ee37495b3cc9f682b8642a09534a7a7478960d2129ef36e008d052980ff"
+    },
+    {
+      "tile_index": 20,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0020",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0020.tif",
+      "bounds_wgs84": [
+        77.526735,
+        28.134349,
+        77.552992,
+        28.14385
+      ],
+      "pixel_window": [
+        0,
+        924,
+        256,
+        100
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "c226b4c042c4dca2fa6a3287f5f445e78c5ba87eac81e2276269a85b3b96c50b"
+    },
+    {
+      "tile_index": 21,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0021",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0021.tif",
+      "bounds_wgs84": [
+        77.550235,
+        28.133909,
+        77.576494,
+        28.143415
+      ],
+      "pixel_window": [
+        231,
+        924,
+        256,
+        100
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "8f0cc297d8b42ad4d4a402bfebee7c7a7a86bd9cdd6d1b3259a59a55e66d3f10"
+    },
+    {
+      "tile_index": 22,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0022",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0022.tif",
+      "bounds_wgs84": [
+        77.573735,
+        28.133465,
+        77.599995,
+        28.142975
+      ],
+      "pixel_window": [
+        462,
+        924,
+        256,
+        100
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "d81fb0f11e2fea8b4127b11c69e712a919973f5f6628a29d9cb184c083494cfa"
+    },
+    {
+      "tile_index": 23,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0023",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0023.tif",
+      "bounds_wgs84": [
+        77.597234,
+        28.133017,
+        77.623495,
+        28.142531
+      ],
+      "pixel_window": [
+        693,
+        924,
+        256,
+        100
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "1d8bcf3e76c5f75c5bf0f58cbb49e3d3c5db8f3f7b86f7fa3464e0d8c5e5cadf"
+    },
+    {
+      "tile_index": 24,
+      "tile_id": "scn_sentinel-2_20241129_39b10de5_t0024",
+      "path": "data/processed/scn_sentinel-2_20241129_39b10de5/tile_0024.tif",
+      "bounds_wgs84": [
+        77.620732,
+        28.132871,
+        77.631125,
+        28.142083
+      ],
+      "pixel_window": [
+        924,
+        924,
+        100,
+        100
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "601af7df0e00ca70e1e2a8a035ca4ec769b20203ae634f53cb3ed1b7596eaa52"
+    }
+  ],
+  "dataset_type": "real_sentinel2_l2a",
+  "platform": "SENTINEL-2A",
+  "original_product": "S2A_MSIL2A_20241129T053201_N0511_R105_T43RGM_20241129T085053.SAFE",
+  "stac_item": "S2A_43RGM_20241129_0_L2A",
+  "mgrs_tile": "43RGM",
+  "source_dataset": "AWS Open Data Registry Sentinel-2 L2A COGs",
+  "source_url": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/43/R/GM/2024/11/S2A_43RGM_20241129_0_L2A/",
+  "temporal_role": "AFTER",
+  "paired_scene_id": "scn_sentinel-2_20230203_f276c3af"
+}
