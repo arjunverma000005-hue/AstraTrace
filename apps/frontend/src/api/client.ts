@@ -15,6 +15,7 @@ import {
   SimilarTilesRequest,
   SimilarTilesResponse,
   EvidencePackageExportResponse,
+  ProvenanceGraphResponse,
 } from '../types/api';
 
 const API_BASE_URL = '/api/v1';
@@ -175,6 +176,22 @@ export class ApiClient {
     } catch (err: unknown) {
       if (err instanceof Error) throw err;
       throw new Error('Failed to search similar tiles');
+    }
+  }
+
+  /**
+   * Retrieves full cryptographic provenance DAG (nodes and edges) for a target entity.
+   */
+  static async getProvenanceGraph(targetId: string): Promise<ProvenanceGraphResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/provenance/graph/${encodeURIComponent(targetId)}`);
+      if (!response.ok) {
+        throw new Error(`Provenance graph error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to fetch provenance graph');
     }
   }
 

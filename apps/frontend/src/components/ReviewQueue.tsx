@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { EvidenceFirstCandidate, ReviewDecision } from '../types/api';
-import { ListIcon } from './Icons';
+import { ListIcon, SpinnerIcon, RadarIcon, ShieldIcon, CalendarIcon, TargetIcon } from './Icons';
 
 interface ReviewQueueProps {
   candidates: EvidenceFirstCandidate[];
@@ -38,131 +38,158 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
   const getStatusBadge = (status: ReviewDecision) => {
     switch (status) {
       case 'CONFIRMED':
-        return { label: 'CONFIRMED', bg: 'rgba(16, 185, 129, 0.2)', color: '#10b981' };
+        return { label: 'CONFIRMED', bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', color: '#10b981' };
       case 'REJECTED':
-        return { label: 'REJECTED', bg: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' };
+        return { label: 'REJECTED', bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', color: '#ef4444' };
       case 'FLAGGED_FOR_INSPECTION':
-        return { label: 'FLAGGED', bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' };
+        return { label: 'FLAGGED', bg: 'rgba(245, 158, 11, 0.15)', border: '#f59e0b', color: '#f59e0b' };
       default:
-        return { label: 'PENDING', bg: 'rgba(59, 130, 246, 0.15)', color: '#38bdf8' };
+        return { label: 'PENDING', bg: 'rgba(56, 189, 248, 0.12)', border: '#38bdf8', color: '#38bdf8' };
     }
   };
 
   const getQualityBadge = (status: string) => {
     switch (status.toUpperCase()) {
       case 'USABLE':
-        return { bg: '#064e3b', color: '#34d399' };
+        return { bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', color: '#34d399' };
       case 'DEGRADED':
-        return { bg: '#451a03', color: '#fbbf24' };
+        return { bg: 'rgba(245, 158, 11, 0.15)', border: '#f59e0b', color: '#fbbf24' };
       case 'UNRELIABLE':
       case 'INSUFFICIENT':
-        return { bg: '#450a0a', color: '#f87171' };
+        return { bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', color: '#f87171' };
       default:
-        return { bg: '#1e293b', color: '#94a3b8' };
+        return { bg: '#182635', border: '#22374c', color: '#94a3b8' };
     }
   };
 
   return (
     <div style={styles.container}>
-      {/* Header */}
+      {/* Tactical Queue Header */}
       <div style={styles.header}>
         <div style={styles.headerTop}>
           <div style={styles.titleGroup}>
-            <span style={styles.queueIcon}><ListIcon size={18} color="#38bdf8" /></span>
-            <h3 style={styles.title}>Analyst Review Queue</h3>
+            <ListIcon size={16} color="#38bdf8" />
+            <h3 style={styles.title}>ANALYST REVIEW QUEUE</h3>
           </div>
-          <span style={styles.totalBadge}>{candidates.length} Targets</span>
+          <span style={styles.totalBadge}>{candidates.length} CANDIDATES</span>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Segmented Filter Tabs */}
         <div style={styles.tabsRow}>
-          {(['ALL', 'PENDING', 'CONFIRMED', 'FLAGGED', 'REJECTED'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilterTab(tab)}
-              style={{
-                ...styles.tabBtn,
-                borderBottom: filterTab === tab ? '2px solid #38bdf8' : '2px solid transparent',
-                color: filterTab === tab ? '#f8fafc' : '#94a3b8',
-                backgroundColor: filterTab === tab ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
-              }}
-            >
-              {tab} ({counts[tab]})
-            </button>
-          ))}
+          {(['ALL', 'PENDING', 'CONFIRMED', 'FLAGGED', 'REJECTED'] as const).map((tab) => {
+            const isActive = filterTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setFilterTab(tab)}
+                style={{
+                  ...styles.tabBtn,
+                  color: isActive ? '#38bdf8' : '#64748b',
+                  borderBottom: isActive ? '2px solid #38bdf8' : '2px solid transparent',
+                  backgroundColor: isActive ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+                }}
+              >
+                <span>{tab}</span>
+                <span style={{
+                  ...styles.tabCount,
+                  backgroundColor: isActive ? 'rgba(56, 189, 248, 0.25)' : '#182635',
+                  color: isActive ? '#38bdf8' : '#94a3b8',
+                }}>
+                  {counts[tab]}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Queue Item List */}
+      {/* Queue Card List */}
       <div style={styles.listContainer}>
         {isLoading ? (
-          <div style={styles.emptyState}>
-            <span style={styles.spinner}>⏳</span>
-            <span>Querying catalog and evaluating quality gate...</span>
+          <div style={styles.loadingState}>
+            <SpinnerIcon size={24} color="#38bdf8" />
+            <span style={styles.loadingText}>EVALUATING SENTINEL-2 TILES & QUALITY GATE...</span>
           </div>
         ) : filteredCandidates.length === 0 ? (
           <div style={styles.emptyState}>
-            <span>No targets matching current filter ({filterTab}).</span>
+            <RadarIcon size={32} color="#334155" />
+            <span style={styles.emptyTitle}>NO TARGETS IN CURRENT FILTER</span>
+            <span style={styles.emptySubtitle}>No candidate observations matching filter ({filterTab}).</span>
           </div>
         ) : (
           filteredCandidates.map((c) => {
-            const isSelected = selectedCandidate?.candidate_id === c.candidate_id;
+            const isSelected = selectedCandidate?.target_id === c.target_id || selectedCandidate?.candidate_id === c.candidate_id;
             const statusInfo = getStatusBadge(c.review_status);
             const qualInfo = getQualityBadge(c.quality_status);
 
             return (
               <div
-                key={c.candidate_id}
+                key={c.target_id || c.candidate_id}
                 onClick={() => onSelectCandidate(c)}
                 style={{
                   ...styles.card,
-                  borderColor: isSelected ? '#facc15' : '#1e293b',
-                  backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.12)' : '#111827',
+                  borderColor: isSelected ? '#38bdf8' : '#182635',
+                  backgroundColor: isSelected ? 'rgba(17, 28, 41, 0.95)' : 'rgba(11, 17, 24, 0.85)',
+                  borderLeft: isSelected ? '3px solid #38bdf8' : '3px solid transparent',
+                  boxShadow: isSelected ? '0 0 16px rgba(56, 189, 248, 0.12)' : 'none',
                 }}
               >
                 {/* Top Row: Rank & Badges */}
                 <div style={styles.cardHeader}>
                   <div style={styles.rankGroup}>
-                    <span style={styles.rankNum}>#{c.rank}</span>
+                    <span style={styles.rankNum}>#{c.rank ? String(c.rank).padStart(2, '0') : '01'}</span>
                     <span style={styles.targetTypeBadge}>{c.target_type}</span>
+                    <span style={styles.sensorBadge}>SENTINEL-2</span>
                   </div>
                   <div style={styles.badgeRow}>
-                    <span style={{ ...styles.badge, backgroundColor: qualInfo.bg, color: qualInfo.color }}>
+                    <span style={{ ...styles.badge, backgroundColor: qualInfo.bg, borderColor: qualInfo.border, color: qualInfo.color }}>
+                      <ShieldIcon size={10} color={qualInfo.color} style={{ marginRight: '3px' }} />
                       {c.quality_status}
                     </span>
-                    <span style={{ ...styles.badge, backgroundColor: statusInfo.bg, color: statusInfo.color }}>
+                    <span style={{ ...styles.badge, backgroundColor: statusInfo.bg, borderColor: statusInfo.border, color: statusInfo.color }}>
                       {statusInfo.label}
                     </span>
                   </div>
                 </div>
 
-                {/* Main Content */}
-                <div style={styles.cardWhat}>{c.what}</div>
-                <div style={styles.targetId}>{c.target_id}</div>
+                {/* Primary Headline */}
+                <div style={styles.cardWhat}>
+                  <TargetIcon size={13} color="#38bdf8" style={{ marginRight: '6px', flexShrink: 0 }} />
+                  <span>{c.what}</span>
+                </div>
 
-                {/* Metrics Row */}
+                {/* Tactical Target Identifier */}
+                <div style={styles.targetId}>
+                  <span style={{ color: '#475569' }}>REF:</span> {c.target_id}
+                </div>
+
+                {/* Metrics Row: Confidence Meter & Observation Epoch */}
                 <div style={styles.metricsRow}>
                   <div style={styles.confMeter}>
                     <div style={styles.confLabel}>
-                      <span>Confidence</span>
-                      <span style={styles.confValue}>{(c.confidence * 100).toFixed(0)}%</span>
+                      <span>CONFIDENCE</span>
+                      <span style={styles.confValue}>{(c.confidence * 100).toFixed(1)}%</span>
                     </div>
                     <div style={styles.meterTrack}>
                       <div
                         style={{
                           ...styles.meterFill,
-                          width: `${Math.round(c.confidence * 100)}%`,
-                          backgroundColor: c.confidence >= 0.7 ? '#10b981' : c.confidence >= 0.4 ? '#f59e0b' : '#ef4444',
+                          width: `${Math.min(100, Math.round(c.confidence * 100))}%`,
+                          backgroundColor: c.confidence >= 0.7 ? '#10b981' : c.confidence >= 0.5 ? '#f59e0b' : '#38bdf8',
                         }}
                       />
                     </div>
                   </div>
+
                   <div style={styles.dateLabel}>
-                    {c.when ? (
-                      c.when.includes(' to ')
-                        ? c.when.split(' to ').map(d => new Date(d.trim()).toLocaleDateString('en-GB')).join(' → ')
-                        : new Date(c.when).toLocaleDateString('en-GB')
-                    ) : 'Unknown Date'}
+                    <CalendarIcon size={11} color="#64748b" style={{ marginRight: '4px' }} />
+                    <span>
+                      {c.when ? (
+                        c.when.includes(' to ')
+                          ? c.when.split(' to ').map(d => new Date(d.trim()).toISOString().slice(0, 10)).join(' → ')
+                          : new Date(c.when).toISOString().slice(0, 10)
+                      ) : '2023-02-03'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -179,60 +206,70 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    backgroundColor: '#0f172a',
+    backgroundColor: 'rgba(11, 17, 24, 0.94)',
+    backdropFilter: 'blur(10px)',
     borderRadius: '8px',
-    border: '1px solid #1e293b',
+    border: '1px solid #182635',
     overflow: 'hidden',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
   },
   header: {
     padding: '12px 14px 0 14px',
-    backgroundColor: '#111827',
-    borderBottom: '1px solid #1f2937',
+    backgroundColor: '#06090e',
+    borderBottom: '1px solid #182635',
   },
   headerTop: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '10px',
+    marginBottom: '8px',
   },
   titleGroup: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
   },
-  queueIcon: {
-    fontSize: '1.2rem',
-  },
   title: {
     margin: 0,
-    fontSize: '0.95rem',
-    fontWeight: 700,
-    letterSpacing: '0.04em',
+    fontSize: '0.78rem',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
     color: '#f8fafc',
   },
   totalBadge: {
-    fontSize: '0.72rem',
-    fontWeight: 600,
+    fontSize: '0.66rem',
+    fontWeight: 700,
+    fontFamily: 'var(--font-mono, monospace)',
     padding: '2px 8px',
-    borderRadius: '12px',
-    backgroundColor: '#1e293b',
+    borderRadius: '10px',
+    backgroundColor: '#0f1722',
     color: '#38bdf8',
-    border: '1px solid #334155',
+    border: '1px solid #182635',
   },
   tabsRow: {
     display: 'flex',
-    gap: '4px',
+    gap: '2px',
     overflowX: 'auto',
   },
   tabBtn: {
-    padding: '6px 10px',
-    fontSize: '0.75rem',
-    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    padding: '7px 9px',
+    fontSize: '0.68rem',
+    fontWeight: 700,
     border: 'none',
     cursor: 'pointer',
     borderRadius: '4px 4px 0 0',
     whiteSpace: 'nowrap',
+    letterSpacing: '0.04em',
     transition: 'all 0.15s ease',
+  },
+  tabCount: {
+    fontFamily: 'var(--font-mono, monospace)',
+    fontSize: '0.62rem',
+    padding: '1px 5px',
+    borderRadius: '8px',
   },
   listContainer: {
     flex: 1,
@@ -245,7 +282,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     padding: '10px 12px',
     borderRadius: '6px',
-    border: '1px solid #1e293b',
+    border: '1px solid #182635',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
     display: 'flex',
@@ -263,38 +300,57 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '6px',
   },
   rankNum: {
-    fontSize: '0.8rem',
+    fontSize: '0.75rem',
     fontWeight: 800,
+    fontFamily: 'var(--font-mono, monospace)',
     color: '#38bdf8',
   },
   targetTypeBadge: {
-    fontSize: '0.65rem',
+    fontSize: '0.60rem',
     fontWeight: 700,
+    fontFamily: 'var(--font-mono, monospace)',
     padding: '1px 5px',
     borderRadius: '3px',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#06090e',
     color: '#94a3b8',
+    border: '1px solid #182635',
+  },
+  sensorBadge: {
+    fontSize: '0.58rem',
+    fontWeight: 700,
+    fontFamily: 'var(--font-mono, monospace)',
+    padding: '1px 4px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    color: '#818cf8',
+    border: '1px solid rgba(99, 102, 241, 0.3)',
   },
   badgeRow: {
     display: 'flex',
-    gap: '6px',
+    gap: '5px',
   },
   badge: {
-    fontSize: '0.68rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: '0.62rem',
     fontWeight: 700,
+    fontFamily: 'var(--font-mono, monospace)',
     padding: '2px 6px',
-    borderRadius: '4px',
-    letterSpacing: '0.03em',
+    borderRadius: '3px',
+    border: '1px solid transparent',
+    letterSpacing: '0.04em',
   },
   cardWhat: {
-    fontSize: '0.86rem',
-    fontWeight: 600,
-    color: '#f1f5f9',
+    display: 'flex',
+    alignItems: 'flex-start',
+    fontSize: '0.80rem',
+    fontWeight: 700,
+    color: '#f8fafc',
     lineHeight: 1.3,
   },
   targetId: {
-    fontSize: '0.72rem',
-    fontFamily: 'monospace',
+    fontSize: '0.68rem',
+    fontFamily: 'var(--font-mono, monospace)',
     color: '#64748b',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -304,9 +360,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: '4px',
+    marginTop: '2px',
     paddingTop: '6px',
-    borderTop: '1px solid #1f2937',
+    borderTop: '1px solid #182635',
   },
   confMeter: {
     display: 'flex',
@@ -317,38 +373,67 @@ const styles: Record<string, React.CSSProperties> = {
   confLabel: {
     display: 'flex',
     justifyContent: 'space-between',
-    fontSize: '0.68rem',
+    fontSize: '0.64rem',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
     color: '#94a3b8',
-    fontWeight: 600,
   },
   confValue: {
+    fontFamily: 'var(--font-mono, monospace)',
     color: '#f8fafc',
   },
   meterTrack: {
     height: '4px',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#06090e',
     borderRadius: '2px',
     overflow: 'hidden',
+    border: '1px solid #182635',
   },
   meterFill: {
     height: '100%',
     borderRadius: '2px',
+    transition: 'width 0.3s ease',
   },
   dateLabel: {
-    fontSize: '0.7rem',
-    color: '#64748b',
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: '0.68rem',
+    fontFamily: 'var(--font-mono, monospace)',
+    color: '#94a3b8',
   },
-  emptyState: {
-    padding: '30px',
+  loadingState: {
+    padding: '40px 20px',
     textAlign: 'center',
     color: '#64748b',
-    fontSize: '0.85rem',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '10px',
+    gap: '12px',
   },
-  spinner: {
-    fontSize: '1.5rem',
+  loadingText: {
+    fontSize: '0.70rem',
+    fontWeight: 700,
+    letterSpacing: '0.05em',
+    color: '#94a3b8',
+  },
+  emptyState: {
+    padding: '40px 20px',
+    textAlign: 'center',
+    color: '#64748b',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  emptyTitle: {
+    fontSize: '0.75rem',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    color: '#cbd5e1',
+  },
+  emptySubtitle: {
+    fontSize: '0.70rem',
+    color: '#64748b',
   },
 };
+

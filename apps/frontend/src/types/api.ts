@@ -196,3 +196,28 @@ export interface EvidencePackageExportResponse {
   contents_summary: Record<string, unknown>;
 }
 
+export interface ProvenanceNode {
+  id: string;
+  node_type: string;
+  label: string;
+  metadata: Record<string, unknown>;
+  checksum?: string | null;
+  timestamp?: string | null;
+}
+
+export interface ProvenanceEdge {
+  source: string;
+  target: string;
+  edge_type: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ProvenanceGraphResponse {
+  root_id: string;
+  root_type: string;
+  nodes: ProvenanceNode[];
+  edges: ProvenanceEdge[];
+  summary: Record<string, unknown>;
+}
+
+

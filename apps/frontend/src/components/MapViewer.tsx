@@ -9,6 +9,9 @@ import {
   EyeIcon,
   EyeOffIcon,
   CalendarIcon,
+  TargetIcon,
+  CrosshairIcon,
+  ShieldIcon,
 } from './Icons';
 
 interface MapViewerProps {
@@ -417,6 +420,17 @@ export const MapViewer: React.FC<MapViewerProps> = ({
   const beforeDateStr = selectedCandidate?.evidence?.before_date || '2023-02-03';
   const afterDateStr = selectedCandidate?.evidence?.after_date || '2024-11-29';
 
+  const handleFitAOI = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (selectedCandidate?.where?.bbox) {
+      const b = selectedCandidate.where.bbox;
+      map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 60, maxZoom: 14, duration: 600 });
+    } else {
+      map.fitBounds([[77.526735, 28.132871], [77.633167, 28.227179]], { padding: 40, maxZoom: 13, duration: 600 });
+    }
+  };
+
   return (
     <div style={styles.container}>
       {/* Map Header Overlay Bar */}
@@ -426,6 +440,10 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           <SatelliteIcon size={16} color="#38bdf8" />
           <span style={styles.dot} />
           <span style={styles.aoiText}>{aoiLabel}</span>
+          <span style={styles.airGapTag}>
+            <ShieldIcon size={10} color="#10b981" style={{ marginRight: '3px' }} />
+            AIR-GAPPED
+          </span>
         </div>
 
         {/* Center: Bitemporal Switcher (T1 / T2) */}
@@ -436,15 +454,21 @@ export const MapViewer: React.FC<MapViewerProps> = ({
               onClick={() => setActiveEpoch('T1')}
               style={{
                 ...styles.epochBtn,
-                backgroundColor: activeEpoch === 'T1' ? '#0284c7' : 'rgba(30, 41, 59, 0.85)',
-                color: activeEpoch === 'T1' ? '#ffffff' : '#94a3b8',
-                borderColor: activeEpoch === 'T1' ? '#38bdf8' : '#475569',
+                backgroundColor: activeEpoch === 'T1' ? '#38bdf8' : '#0f1722',
+                color: activeEpoch === 'T1' ? '#06090e' : '#94a3b8',
+                borderColor: activeEpoch === 'T1' ? '#38bdf8' : '#182635',
               }}
               title="Switch main map optical raster to T1 (Before) observation"
             >
-              <CalendarIcon size={13} color={activeEpoch === 'T1' ? '#ffffff' : '#38bdf8'} />
+              <CalendarIcon size={13} color={activeEpoch === 'T1' ? '#06090e' : '#38bdf8'} />
               <span>T1 BEFORE</span>
-              <span style={styles.epochDateBadge}>{beforeDateStr}</span>
+              <span style={{
+                ...styles.epochDateBadge,
+                backgroundColor: activeEpoch === 'T1' ? 'rgba(6, 9, 14, 0.4)' : '#06090e',
+                color: activeEpoch === 'T1' ? '#06090e' : '#f8fafc',
+              }}>
+                {beforeDateStr}
+              </span>
             </button>
 
             <button
@@ -452,15 +476,21 @@ export const MapViewer: React.FC<MapViewerProps> = ({
               onClick={() => setActiveEpoch('T2')}
               style={{
                 ...styles.epochBtn,
-                backgroundColor: activeEpoch === 'T2' ? '#0284c7' : 'rgba(30, 41, 59, 0.85)',
-                color: activeEpoch === 'T2' ? '#ffffff' : '#94a3b8',
-                borderColor: activeEpoch === 'T2' ? '#38bdf8' : '#475569',
+                backgroundColor: activeEpoch === 'T2' ? '#38bdf8' : '#0f1722',
+                color: activeEpoch === 'T2' ? '#06090e' : '#94a3b8',
+                borderColor: activeEpoch === 'T2' ? '#38bdf8' : '#182635',
               }}
               title="Switch main map optical raster to T2 (After) observation"
             >
-              <CalendarIcon size={13} color={activeEpoch === 'T2' ? '#ffffff' : '#38bdf8'} />
+              <CalendarIcon size={13} color={activeEpoch === 'T2' ? '#06090e' : '#38bdf8'} />
               <span>T2 AFTER</span>
-              <span style={styles.epochDateBadge}>{afterDateStr}</span>
+              <span style={{
+                ...styles.epochDateBadge,
+                backgroundColor: activeEpoch === 'T2' ? 'rgba(6, 9, 14, 0.4)' : '#06090e',
+                color: activeEpoch === 'T2' ? '#06090e' : '#f8fafc',
+              }}>
+                {afterDateStr}
+              </span>
             </button>
           </div>
         )}
@@ -469,14 +499,24 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         <div style={styles.headerControls}>
           <button
             type="button"
+            onClick={handleFitAOI}
+            style={styles.fitBtn}
+            title="Fit view to target boundary"
+          >
+            <TargetIcon size={13} color="#38bdf8" />
+            <span>FIT TARGET</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowAllFootprints((prev) => !prev)}
             style={{
               ...styles.toggleBtn,
               backgroundColor: showAllFootprints
-                ? 'rgba(14, 165, 233, 0.18)'
-                : 'rgba(30, 41, 59, 0.85)',
+                ? 'rgba(56, 189, 248, 0.12)'
+                : '#0f1722',
               color: showAllFootprints ? '#38bdf8' : '#64748b',
-              borderColor: showAllFootprints ? '#0284c7' : '#475569',
+              borderColor: showAllFootprints ? '#38bdf8' : '#182635',
             }}
             title={
               showAllFootprints
@@ -484,12 +524,12 @@ export const MapViewer: React.FC<MapViewerProps> = ({
                 : 'Show all candidate footprint outlines'
             }
           >
-            <LayersIcon size={14} color={showAllFootprints ? '#38bdf8' : '#64748b'} />
+            <LayersIcon size={13} color={showAllFootprints ? '#38bdf8' : '#64748b'} />
             <span>FOOTPRINTS {showAllFootprints ? 'ON' : 'OFF'}</span>
             {showAllFootprints ? (
-              <EyeIcon size={13} color="#38bdf8" />
+              <EyeIcon size={12} color="#38bdf8" />
             ) : (
-              <EyeOffIcon size={13} color="#64748b" />
+              <EyeOffIcon size={12} color="#64748b" />
             )}
           </button>
 
@@ -500,6 +540,11 @@ export const MapViewer: React.FC<MapViewerProps> = ({
             <span style={{ ...styles.legendItem, color: '#ef4444' }}>■ Rejected</span>
           </div>
         </div>
+      </div>
+
+      {/* Central Tactical Reticle Overlay */}
+      <div style={styles.reticleOverlay}>
+        <CrosshairIcon size={36} color="rgba(56, 189, 248, 0.25)" />
       </div>
 
       {/* MapLibre Canvas Container */}
@@ -553,10 +598,10 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '100%',
     minHeight: '480px',
-    backgroundColor: '#070d19',
+    backgroundColor: '#06090e',
     overflow: 'hidden',
     borderRadius: '8px',
-    border: '1px solid #1e293b',
+    border: '1px solid #182635',
   },
   mapCanvas: {
     width: '100%',
@@ -574,18 +619,18 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '10px',
     padding: '8px 14px',
-    backgroundColor: 'rgba(11, 17, 32, 0.92)',
-    backdropFilter: 'blur(10px)',
+    backgroundColor: 'rgba(9, 14, 22, 0.9)',
+    backdropFilter: 'blur(12px)',
     borderRadius: '6px',
-    border: '1px solid rgba(51, 65, 85, 0.85)',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+    border: '1px solid rgba(24, 38, 53, 0.9)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
     pointerEvents: 'none',
   },
   aoiBadge: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    fontSize: '0.8rem',
+    fontSize: '0.78rem',
     fontWeight: 600,
     color: '#cbd5e1',
     letterSpacing: '0.03em',
@@ -593,6 +638,22 @@ const styles: Record<string, React.CSSProperties> = {
   },
   aoiText: {
     whiteSpace: 'nowrap',
+    fontFamily: 'monospace',
+    letterSpacing: '0.04em',
+  },
+  airGapTag: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 6px',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    borderRadius: '4px',
+    fontSize: '0.62rem',
+    fontWeight: 700,
+    color: '#10b981',
+    letterSpacing: '0.08em',
+    fontFamily: 'monospace',
+    marginLeft: '6px',
   },
   dot: {
     width: '7px',
@@ -612,35 +673,51 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '4px 10px',
-    fontSize: '0.74rem',
-    fontWeight: 600,
+    padding: '5px 12px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    letterSpacing: '0.05em',
     borderRadius: '4px',
     border: '1px solid',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
   },
   epochDateBadge: {
-    fontSize: '0.68rem',
-    padding: '1px 5px',
+    fontSize: '0.66rem',
+    padding: '2px 6px',
     borderRadius: '3px',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    color: '#f8fafc',
     fontFamily: 'monospace',
+    letterSpacing: '0.02em',
   },
   headerControls: {
     display: 'flex',
     alignItems: 'center',
-    gap: '14px',
+    gap: '10px',
     pointerEvents: 'auto',
+  },
+  fitBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '5px 11px',
+    fontSize: '0.72rem',
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    borderRadius: '4px',
+    border: '1px solid #182635',
+    backgroundColor: '#0f1722',
+    color: '#cbd5e1',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
   toggleBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '4px 10px',
+    padding: '5px 11px',
     fontSize: '0.72rem',
     fontWeight: 600,
+    letterSpacing: '0.04em',
     borderRadius: '4px',
     border: '1px solid',
     cursor: 'pointer',
@@ -649,8 +726,9 @@ const styles: Record<string, React.CSSProperties> = {
   legend: {
     display: 'flex',
     gap: '10px',
-    fontSize: '0.74rem',
+    fontSize: '0.72rem',
     fontWeight: 600,
+    fontFamily: 'monospace',
   },
   legendItem: {
     display: 'flex',
@@ -658,10 +736,19 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '4px',
     whiteSpace: 'nowrap',
   },
+  reticleOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    zIndex: 5,
+    pointerEvents: 'none',
+    opacity: 0.5,
+  },
   fallbackContainer: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#06090e',
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
@@ -672,7 +759,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    borderBottom: '1px solid #334155',
+    borderBottom: '1px solid #182635',
     paddingBottom: '12px',
   },
   fallbackTitle: {
@@ -693,7 +780,7 @@ const styles: Record<string, React.CSSProperties> = {
   gridCard: {
     padding: '12px',
     borderRadius: '6px',
-    border: '1px solid #334155',
+    border: '1px solid #182635',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
   },
