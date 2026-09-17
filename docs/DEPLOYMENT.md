@@ -117,6 +117,37 @@ Render provides direct GitHub repository integration with automatic Docker build
 
 ---
 
+### Option D: Vercel (Frontend Deployment)
+
+AstraTrace's React/Vite frontend can be deployed directly to Vercel.
+
+#### Root Directory & Build Configuration
+- **Framework Preset**: Vite
+- **Root Directory**: `apps/frontend` *(Recommended)* OR repository root `./` *(supported via root `package.json` and `vercel.json`)*
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist` (or `apps/frontend/dist` if building from root)
+- **Install Command**: `npm install`
+
+#### Environment Variables on Vercel
+| Variable | Value | Description |
+| :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | `https://astratrace.onrender.com` | Public HTTPS URL of the AstraTrace backend API. (Leave empty if using same-origin proxy or rewrites). |
+
+#### SPA Rewrites
+Both `apps/frontend/vercel.json` and root `vercel.json` configure single-page client routing:
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+---
+
 ## 4. Post-Deployment Verification Checklist
 
 Once the container finishes building and status reports **Live**:

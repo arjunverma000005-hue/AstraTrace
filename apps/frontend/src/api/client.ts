@@ -18,7 +18,10 @@ import {
   ProvenanceGraphResponse,
 } from '../types/api';
 
-const API_BASE_URL = '/api/v1';
+const ENV_API_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const API_BASE_URL = ENV_API_URL
+  ? (ENV_API_URL.endsWith('/api/v1') ? ENV_API_URL : `${ENV_API_URL}/api/v1`)
+  : '/api/v1';
 
 export class ApiClient {
   /**
