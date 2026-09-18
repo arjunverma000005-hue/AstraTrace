@@ -23,6 +23,7 @@ dependencies = [
     "shapely>=2.0.0",
     "tifffile>=2024.0.0",
     "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.9",
 ]
 
 [project.optional-dependencies]

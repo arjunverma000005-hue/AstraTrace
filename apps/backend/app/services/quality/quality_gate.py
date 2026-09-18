@@ -223,13 +223,19 @@ class QualityGate:
 
         # 5. Export Verified Change Mask PNG
         mask_dir = output_mask_dir or (self.project_root / "data" / "processed" / "changes")
-        mask_dir.mkdir(parents=True, exist_ok=True)
         mask_filename = f"{change_id}_verified_mask.png"
         mask_file_path = mask_dir / mask_filename
 
         mask_uint8 = (verified_mask.astype(np.uint8)) * 255
         img = Image.fromarray(mask_uint8, mode="L")
-        img.save(mask_file_path, format="PNG")
+        try:
+            mask_dir.mkdir(parents=True, exist_ok=True)
+            img.save(mask_file_path, format="PNG")
+        except (OSError, PermissionError):
+            tmp_dir = Path("/tmp/changes")
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            mask_file_path = tmp_dir / mask_filename
+            img.save(mask_file_path, format="PNG")
 
         mask_url = f"/api/v1/change/mask/{change_id}"
 

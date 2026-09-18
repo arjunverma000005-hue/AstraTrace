@@ -29,14 +29,20 @@ class Settings(BaseSettings):
     offline_mode: bool = True
 
     # Security & CORS
-    cors_origins: Union[str, List[str]] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_origins: Union[str, List[str]] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://astra-trace.vercel.app",
+    ]
 
     # Storage Paths
     data_dir: str = "data"
     models_dir: str = "models"
 
-    # Database Configuration (PostgreSQL in production / Docker, SQLite fallback for offline local testing)
+    # Database Configuration (PostgreSQL in production, SQLite fallback for offline local testing)
     database_url: str = "sqlite:///./data/catalog.db"
+    catalog_database_url: str = Field(default="sqlite:///./data/catalog.db", validation_alias=AliasChoices("CATALOG_DATABASE_URL", "catalog_database_url"))
+    state_database_url: str = Field(default="", validation_alias=AliasChoices("STATE_DATABASE_URL", "POSTGRES_URL", "state_database_url"))
     redis_url: str = "redis://localhost:6379/0"
 
     @field_validator("cors_origins", mode="before")

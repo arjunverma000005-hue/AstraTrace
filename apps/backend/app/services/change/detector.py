@@ -206,12 +206,19 @@ class BaselineChangeDetector:
             out_p = Path(output_mask_path)
             if not out_p.is_absolute():
                 out_p = (self.project_root / out_p).resolve()
-            out_p.parent.mkdir(parents=True, exist_ok=True)
 
             # Save 8-bit grayscale PNG: 0 = background, 255 = change
             mask_img = Image.fromarray((clean_mask * 255).astype(np.uint8), mode="L")
-            mask_img.save(out_p)
-            mask_path_str = str(out_p.relative_to(self.project_root)).replace("\\", "/")
+            try:
+                out_p.parent.mkdir(parents=True, exist_ok=True)
+                mask_img.save(out_p)
+                mask_path_str = str(out_p.relative_to(self.project_root)).replace("\\", "/")
+            except (OSError, PermissionError):
+                tmp_dir = Path("/tmp/changes")
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                tmp_path = tmp_dir / out_p.name
+                mask_img.save(tmp_path)
+                mask_path_str = f"/tmp/changes/{out_p.name}"
 
         total_ms = round((time.perf_counter() - t0) * 1000.0, 3)
 

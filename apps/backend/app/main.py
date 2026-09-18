@@ -2,8 +2,18 @@
 
 SIH 2026 | Problem ID: SIH26227
 """
+import sys
 import uuid
 from pathlib import Path
+
+# Ensure repository root is on sys.path for monorepo namespace imports
+_current_file = Path(__file__).resolve()
+for _p in _current_file.parents:
+    if (_p / "data").is_dir() and (_p / "apps").is_dir():
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+        break
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse, JSONResponse

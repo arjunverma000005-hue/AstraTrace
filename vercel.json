@@ -1,0 +1,39 @@
+{
+  "version": 3,
+  "services": {
+    "frontend": {
+      "root": "apps/frontend",
+      "framework": "vite"
+    },
+    "backend": {
+      "root": "apps/backend",
+      "entrypoint": "main:app"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/docs",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/openapi.json",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ]
+}

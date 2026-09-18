@@ -203,7 +203,13 @@ def get_tile_preview(
 
             rgb_arr = np.stack([stretch(r), stretch(g), stretch(b)], axis=-1)
             img = Image.fromarray(rgb_arr, mode="RGB")
-            img.save(thumb_path, format="PNG")
+            try:
+                img.save(thumb_path, format="PNG")
+            except (OSError, PermissionError):
+                tmp_dir = Path("/tmp/thumbnails")
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                thumb_path = tmp_dir / f"{r_path.stem}_thumb.png"
+                img.save(thumb_path, format="PNG")
 
     return FileResponse(thumb_path, media_type="image/png", filename=f"{tile_id}_rgb.png")
 
@@ -282,7 +288,13 @@ def get_scene_preview(
 
             rgb_arr = np.stack([stretch(r), stretch(g), stretch(b)], axis=-1)
             img = Image.fromarray(rgb_arr, mode="RGB")
-            img.save(thumb_path, format="PNG")
+            try:
+                img.save(thumb_path, format="PNG")
+            except (OSError, PermissionError):
+                tmp_dir = Path("/tmp/thumbnails")
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                thumb_path = tmp_dir / f"{scene_id}_rgb.png"
+                img.save(thumb_path, format="PNG")
 
     return FileResponse(thumb_path, media_type="image/png", filename=f"{scene_id}_rgb.png")
 

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from apps.backend.app.core.errors import ValidationError
-from apps.backend.app.db.session import get_db
+from apps.backend.app.db.session import get_db, get_state_db
 from apps.backend.app.schemas.audit import AuditEventResponse, AuditLogResponse
 from apps.backend.app.schemas.provenance import (
     EvidencePackageExportResponse,
@@ -102,12 +102,12 @@ async def query_audit_log(
     status: Optional[str] = Query(None, description="Filter by execution status"),
     limit: int = Query(50, ge=1, le=500, description="Page limit"),
     offset: int = Query(0, ge=0, description="Page offset"),
-    db: Session = Depends(get_db),
+    state_db: Session = Depends(get_state_db),
 ) -> AuditLogResponse:
     """Returns filtered, chronologically ordered audit records."""
     clean_target = validate_target_id(target_id) if target_id else None
 
-    with AuditService(db=db) as service:
+    with AuditService(db=state_db) as service:
         total, records = service.query_events(
             event_type=event_type,
             actor=actor,

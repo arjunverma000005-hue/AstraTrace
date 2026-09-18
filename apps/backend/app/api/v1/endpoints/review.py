@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from apps.backend.app.db.session import get_db
+from apps.backend.app.db.session import get_db, get_state_db
 from apps.backend.app.schemas.review import (
     ReviewDecision,
     ReviewHistoryResponse,
@@ -33,9 +33,10 @@ router = APIRouter(prefix="/review", tags=["review"])
 def submit_analyst_decision(
     request: SubmitReviewRequest,
     db: Session = Depends(get_db),
+    state_db: Session = Depends(get_state_db),
 ) -> ReviewRecordResponse:
     """Persists a human-in-the-loop review decision into the catalog database."""
-    service = AnalystReviewService(db=db)
+    service = AnalystReviewService(db=db, state_db=state_db)
     return service.submit_decision(request)
 
 
@@ -65,9 +66,10 @@ def get_review_queue(
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db),
+    state_db: Session = Depends(get_state_db),
 ) -> ReviewQueueResponse:
     """Returns items in the operational analyst queue."""
-    service = AnalystReviewService(db=db)
+    service = AnalystReviewService(db=db, state_db=state_db)
     active_status = status or status_filter
     return service.get_queue(
         status_filter=active_status,
@@ -87,7 +89,8 @@ def get_review_queue(
 def get_target_review_history(
     target_id: str,
     db: Session = Depends(get_db),
+    state_db: Session = Depends(get_state_db),
 ) -> ReviewHistoryResponse:
     """Returns decision history for auditability and provenance."""
-    service = AnalystReviewService(db=db)
+    service = AnalystReviewService(db=db, state_db=state_db)
     return service.get_history(target_id)

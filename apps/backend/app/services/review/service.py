@@ -35,8 +35,9 @@ TARGET_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 class AnalystReviewService:
     """Service handling analyst triage, decision persistence, and queue management."""
 
-    def __init__(self, db: Session, project_root: Optional[Path] = None):
+    def __init__(self, db: Session, project_root: Optional[Path] = None, state_db: Optional[Session] = None):
         self.db = db
+        self.state_db = state_db if state_db is not None else db
         if project_root is None:
             current = Path(__file__).resolve()
             for parent in current.parents:
@@ -99,9 +100,9 @@ class AnalystReviewService:
             updated_at=now_dt,
         )
 
-        self.db.add(record)
-        self.db.commit()
-        self.db.refresh(record)
+        self.state_db.add(record)
+        self.state_db.commit()
+        self.state_db.refresh(record)
 
         logger.info(
             f"Analyst review recorded: {review_id} target={request.target_id} "
@@ -110,7 +111,7 @@ class AnalystReviewService:
 
         try:
             from apps.backend.app.services.audit.service import AuditService
-            audit_svc = AuditService(db=self.db)
+            audit_svc = AuditService(db=self.state_db)
             audit_svc.log_event(
                 event_type="ANALYST_REVIEW",
                 actor=request.analyst_id.strip(),
@@ -149,7 +150,7 @@ class AnalystReviewService:
             raise ValidationError(f"Invalid target ID format: {target_id}")
 
         records = (
-            self.db.query(AnalystReviewRecord)
+            self.state_db.query(AnalystReviewRecord)
             .filter(AnalystReviewRecord.target_id == target_id)
             .order_by(desc(AnalystReviewRecord.created_at))
             .all()
@@ -192,7 +193,7 @@ class AnalystReviewService:
 
         # Build map of latest reviews by target_id
         reviews: List[AnalystReviewRecord] = (
-            self.db.query(AnalystReviewRecord)
+            self.state_db.query(AnalystReviewRecord)
             .order_by(AnalystReviewRecord.created_at.desc())
             .all()
         )

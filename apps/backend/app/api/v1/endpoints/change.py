@@ -109,11 +109,15 @@ def get_change_mask(
         project_root = current.parents[4]
 
     changes_dir = project_root / "data" / "processed" / "changes"
-    # Check possible filename patterns
+    tmp_changes_dir = Path("/tmp/changes")
+    # Check possible filename patterns in repository assets and serverless /tmp
     candidates = [
         changes_dir / f"{change_id}.png",
         changes_dir / f"{change_id}_verified_mask.png",
         changes_dir / f"{change_id}_mask.png",
+        tmp_changes_dir / f"{change_id}.png",
+        tmp_changes_dir / f"{change_id}_verified_mask.png",
+        tmp_changes_dir / f"{change_id}_mask.png",
     ]
     mask_path = next((p for p in candidates if p.exists() and p.is_file()), None)
     if not mask_path:

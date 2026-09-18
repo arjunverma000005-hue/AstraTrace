@@ -11,7 +11,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from apps.backend.app.core.logging import get_logger
-from apps.backend.app.db.session import SessionLocal
+from apps.backend.app.db.session import StateSessionLocal
 from apps.backend.app.models.audit import AuditEventRecord
 
 logger = get_logger("astratrace.audit")
@@ -25,7 +25,7 @@ class AuditService:
             self.db = db
             self._owns_db = False
         else:
-            self.db = SessionLocal()
+            self.db = StateSessionLocal()
             self._owns_db = True
 
     def close(self):
