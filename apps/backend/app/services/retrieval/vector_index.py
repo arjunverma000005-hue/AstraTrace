@@ -195,14 +195,19 @@ class NumpyVectorIndex(VectorIndex):
     def save(self, filepath: Path) -> None:
         """Saves vectors and metadata to compressed npz archive."""
         p = Path(filepath)
-        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            target_path = p
+        except (OSError, PermissionError):
+            tmp_p = Path("/tmp") / p.name
+            target_path = tmp_p
         np.savez_compressed(
-            p,
+            target_path,
             matrix=self.matrix,
             tile_ids=np.array(self.tile_ids, dtype=object),
             metadata_json=np.array(json.dumps(self.metadata_store)),
         )
-        logger.info(f"Persisted vector index ({self.size()} items) to {p}")
+        logger.info(f"Persisted vector index ({self.size()} items) to {target_path}")
 
     def load(self, filepath: Path) -> None:
         """Restores index from compressed npz archive."""

@@ -1,0 +1,105 @@
+{
+  "report_id": "bench_74ec29e07d1e",
+  "timestamp": "2026-09-19T09:27:31.113439Z",
+  "duration_seconds": 18.296,
+  "platform": "Windows 10 (AMD64)",
+  "offline_mode": true,
+  "retrieval": {
+    "queries_evaluated": 4,
+    "top_k": 3,
+    "baseline": {
+      "mean_precision_at_k": 0.0,
+      "mean_recall_at_k": 0.0,
+      "mean_mrr": 0.0,
+      "mean_ndcg_at_k": 0.0,
+      "mean_latency_ms": 50.2
+    },
+    "semantic": {
+      "mean_precision_at_k": 0.0833,
+      "mean_recall_at_k": 0.125,
+      "mean_mrr": 0.125,
+      "mean_ndcg_at_k": 0.0967,
+      "mean_latency_ms": 12.145
+    },
+    "hybrid": {
+      "mean_precision_at_k": 0.0,
+      "mean_recall_at_k": 0.0,
+      "mean_mrr": 0.0,
+      "mean_ndcg_at_k": 0.0,
+      "mean_latency_ms": 167.2325
+    }
+  },
+  "change_detection": {
+    "scenarios": [
+      {
+        "scenario_name": "True Construction Change",
+        "baseline_changed_pixels": 4800,
+        "gated_changed_pixels": 4800,
+        "suppressed_pixels": 0,
+        "decision": "QUALITY_DEGRADED",
+        "gated_confidence": 0.4479,
+        "false_alarm_reduction_rate": 0.0
+      },
+      {
+        "scenario_name": "Clean Negative Control",
+        "baseline_changed_pixels": 0,
+        "gated_changed_pixels": 0,
+        "suppressed_pixels": 0,
+        "decision": "QUALITY_PASSED",
+        "gated_confidence": 0.0,
+        "false_alarm_reduction_rate": 0.0
+      },
+      {
+        "scenario_name": "Cloud Contamination Challenge",
+        "baseline_changed_pixels": 6400,
+        "gated_changed_pixels": 0,
+        "suppressed_pixels": 6400,
+        "decision": "QUALITY_SUPPRESSED",
+        "gated_confidence": 0.0,
+        "false_alarm_reduction_rate": 100.0
+      },
+      {
+        "scenario_name": "Cloud Shadow Challenge",
+        "baseline_changed_pixels": 3600,
+        "gated_changed_pixels": 0,
+        "suppressed_pixels": 3600,
+        "decision": "QUALITY_SUPPRESSED",
+        "gated_confidence": 0.0,
+        "false_alarm_reduction_rate": 100.0
+      },
+      {
+        "scenario_name": "Severe NoData Challenge",
+        "baseline_changed_pixels": 0,
+        "gated_changed_pixels": 0,
+        "suppressed_pixels": 0,
+        "decision": "UNCERTAIN",
+        "gated_confidence": 0.0,
+        "false_alarm_reduction_rate": 0.0
+      }
+    ],
+    "true_positive_preservation_pct": 100.0,
+    "false_alarm_suppression_pct": 100.0,
+    "otsu_stability_passed": true
+  },
+  "quality_gate": {
+    "cloud_rejection_accuracy": 1.0,
+    "shadow_rejection_accuracy": 1.0,
+    "nodata_abstention_accuracy": 1.0
+  },
+  "provenance": {
+    "verified_artifacts": 4,
+    "tampered_artifacts_detected": 1,
+    "missing_artifacts": 0,
+    "mean_verification_latency_ms": 20.589,
+    "dag_node_count": 35,
+    "dag_edge_count": 34,
+    "dossier_export_valid": true
+  },
+  "system": {
+    "mean_query_latency_ms": 2860.49,
+    "p95_query_latency_ms": 3818.09,
+    "evidence_first_completeness_pct": 100.0,
+    "airgap_isolation_verified": true
+  },
+  "all_benchmarks_passed": true
+}

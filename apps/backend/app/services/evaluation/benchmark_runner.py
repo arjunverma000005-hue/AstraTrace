@@ -135,10 +135,17 @@ class BenchmarkRunnerService:
 
         # Persist to disk
         out_dir = self.project_root / "data" / "processed" / "evaluation"
-        out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            out_dir = Path("/tmp/evaluation")
+            out_dir.mkdir(parents=True, exist_ok=True)
         report_file = out_dir / "benchmark_report.json"
-        with open(report_file, "w", encoding="utf-8") as f:
-            f.write(report.model_dump_json(indent=2))
+        try:
+            with open(report_file, "w", encoding="utf-8") as f:
+                f.write(report.model_dump_json(indent=2))
+        except (OSError, PermissionError):
+            pass
 
         return report
 
@@ -163,7 +170,11 @@ class BenchmarkRunnerService:
         t0_after = self.project_root / "data" / "processed" / "scn_sentinel-2_20241222_7acad713" / "tile_0000.tif"
 
         bench_dir = self.project_root / "data" / "processed" / "benchmark_challenges"
-        bench_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            bench_dir.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            bench_dir = Path("/tmp/benchmark_challenges")
+            bench_dir.mkdir(parents=True, exist_ok=True)
 
         with rasterio.open(t0_after) as src:
             meta = src.meta.copy()

@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+!apps/backend/app/lib/libexpat.so.1
 .Python
 build/
 develop-eggs/
@@ -11,6 +12,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!apps/backend/app/lib/
+!apps/backend/app/lib/**
 lib64/
 parts/
 sdist/
@@ -82,6 +85,8 @@ models/*
 # Local Databases & Volume Data
 *.sqlite3
 *.db
+!apps/backend/data/**
+!data/catalog.db
 *.db-shm
 *.db-wal
 postgres-data/
@@ -112,3 +117,5 @@ Desktop.ini
 !data/samples/**
 !data/samples/**/*.tif
 !data/samples/**/*.json
+.vercel
+.env*

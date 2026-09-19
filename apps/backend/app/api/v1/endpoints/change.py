@@ -110,11 +110,20 @@ def get_change_mask(
 
     changes_dir = project_root / "data" / "processed" / "changes"
     tmp_changes_dir = Path("/tmp/changes")
-    # Check possible filename patterns in repository assets and serverless /tmp
+    # Check possible filename patterns in repository assets, deployed bundles, and serverless /tmp
     candidates = [
         changes_dir / f"{change_id}.png",
         changes_dir / f"{change_id}_verified_mask.png",
         changes_dir / f"{change_id}_mask.png",
+        project_root / "processed" / "changes" / f"{change_id}.png",
+        project_root / "processed" / "changes" / f"{change_id}_verified_mask.png",
+        project_root / "processed" / "changes" / f"{change_id}_mask.png",
+        Path("/var/task/data/processed/changes") / f"{change_id}.png",
+        Path("/var/task/data/processed/changes") / f"{change_id}_verified_mask.png",
+        Path("/var/task/data/processed/changes") / f"{change_id}_mask.png",
+        Path("/var/task/apps/backend/data/processed/changes") / f"{change_id}.png",
+        Path("/var/task/apps/backend/data/processed/changes") / f"{change_id}_verified_mask.png",
+        Path("/var/task/apps/backend/data/processed/changes") / f"{change_id}_mask.png",
         tmp_changes_dir / f"{change_id}.png",
         tmp_changes_dir / f"{change_id}_verified_mask.png",
         tmp_changes_dir / f"{change_id}_mask.png",

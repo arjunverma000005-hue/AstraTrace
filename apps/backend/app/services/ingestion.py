@@ -90,7 +90,11 @@ class IngestionService:
             self.project_root = project_root
 
         self.processed_dir = self.project_root / "data" / "processed"
-        self.processed_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.processed_dir.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            self.processed_dir = Path("/tmp/processed")
+            self.processed_dir.mkdir(parents=True, exist_ok=True)
 
     def ingest_scene(self, request: IngestRequest) -> IngestResponse:
         """Validates raster, generates tiled patches, computes quality flags, and writes manifest."""
@@ -108,7 +112,11 @@ class IngestionService:
 
         # Destination directory for this scene's tiles
         scene_output_dir = self.processed_dir / scene_id
-        scene_output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            scene_output_dir.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            scene_output_dir = Path("/tmp/processed") / scene_id
+            scene_output_dir.mkdir(parents=True, exist_ok=True)
 
         # 3. Open raster and validate geospatial dimensions
         with rasterio.open(resolved_path) as src:

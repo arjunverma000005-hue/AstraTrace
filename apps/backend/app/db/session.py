@@ -3,6 +3,7 @@
 SIH 2026 | Problem ID: SIH26227
 Supports PostgreSQL/PostGIS in production and SQLite for offline host testing.
 """
+import os
 from pathlib import Path
 from typing import Generator
 from sqlalchemy import create_engine, event
@@ -23,29 +24,86 @@ def get_engine(database_url: str = None, is_readonly: bool = False):
 
     # SQLite configuration
     if url.startswith("sqlite:///"):
+        import sqlite3
+        import shutil
+        from sqlalchemy.pool import StaticPool
+
         db_path = url.replace("sqlite:///", "").split("?")[0]
-        is_ro = is_readonly or "mode=ro" in url or "immutable=1" in url
+        is_ro = is_readonly or "mode=ro" in url or "immutable=1" in url or bool(os.environ.get("VERCEL"))
 
-        if db_path != ":memory:" and not is_ro:
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        found_path = None
+        if db_path != ":memory:":
+            p = Path(db_path)
+            if not p.is_absolute():
+                candidates = [
+                    Path.cwd() / p,
+                    Path(__file__).resolve().parents[2] / p,
+                    Path(__file__).resolve().parents[3] / p,
+                    Path(__file__).resolve().parents[4] / p,
+                    Path("/var/task") / p,
+                    Path("/var/task") / "apps" / "backend" / p,
+                    Path("/var/task/..") / p,
+                    Path.cwd() / "apps" / "backend" / p,
+                    Path("/tmp") / p.name,
+                ]
+                for c in candidates:
+                    try:
+                        if c.is_file():
+                            found_path = c.resolve()
+                            break
+                    except Exception:
+                        pass
+            elif p.is_file():
+                found_path = p.resolve()
 
-        engine = create_engine(
-            url,
-            connect_args={"check_same_thread": False},
-            echo=False,
-        )
+            if is_ro and found_path:
+                tmp_db = Path("/tmp") / found_path.name
+                try:
+                    if not tmp_db.exists() or tmp_db.stat().st_size != found_path.stat().st_size:
+                        shutil.copy2(found_path, tmp_db)
+                    found_path = tmp_db
+                except Exception:
+                    pass
+            elif not is_ro and not found_path and db_path != ":memory:":
+                try:
+                    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+                except (OSError, PermissionError):
+                    pass
+
+        if found_path:
+            posix_path = found_path.as_posix()
+            conn_target = f"file:{posix_path}?mode=ro&immutable=1" if is_ro else posix_path
+            use_uri = is_ro
+
+            engine = create_engine(
+                "sqlite://",
+                creator=lambda: sqlite3.connect(conn_target, uri=use_uri, check_same_thread=False),
+                echo=False,
+            )
+        else:
+            # Fallback to shared in-memory SQLite database
+            engine = create_engine(
+                "sqlite://",
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+                echo=False,
+            )
+            try:
+                import apps.backend.app.models  # noqa: F401
+                Base.metadata.create_all(bind=engine)
+            except Exception:
+                pass
 
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            # Only enable WAL if database is opened in read-write mode
             if not is_ro:
                 try:
+                    cursor = dbapi_connection.cursor()
+                    cursor.execute("PRAGMA foreign_keys=ON")
                     cursor.execute("PRAGMA journal_mode=WAL")
+                    cursor.close()
                 except Exception:
                     pass
-            cursor.close()
 
         return engine
 

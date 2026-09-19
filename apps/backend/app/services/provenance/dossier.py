@@ -106,22 +106,39 @@ class EvidencePackageService:
         }
 
         # 4. Resolve destination path
-        export_dir = self.project_root / "data" / "processed" / "exports"
-        export_dir.mkdir(parents=True, exist_ok=True)
+        safe_target_id = target_id.replace("/", "_").replace("\\", "_")
+        export_filename = f"dossier_{safe_target_id}_{export_id}.json"
 
         if output_path is None:
-            safe_target_id = target_id.replace("/", "_").replace("\\", "_")
-            export_filename = f"dossier_{safe_target_id}_{export_id}.json"
-            dest_abs = export_dir / export_filename
+            export_dir = self.project_root / "data" / "processed" / "exports"
+            try:
+                export_dir.mkdir(parents=True, exist_ok=True)
+                dest_abs = export_dir / export_filename
+            except (OSError, PermissionError):
+                tmp_dir = Path("/tmp/exports")
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                dest_abs = tmp_dir / export_filename
         else:
             dest_abs = Path(output_path)
             if not dest_abs.is_absolute():
                 dest_abs = (self.project_root / dest_abs).resolve()
-            dest_abs.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                dest_abs.parent.mkdir(parents=True, exist_ok=True)
+            except (OSError, PermissionError):
+                tmp_dir = Path("/tmp/exports")
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                dest_abs = tmp_dir / dest_abs.name
 
         # 5. Write file and compute package SHA-256
-        with open(dest_abs, "w", encoding="utf-8") as f:
-            json.dump(dossier_data, f, indent=2)
+        try:
+            with open(dest_abs, "w", encoding="utf-8") as f:
+                json.dump(dossier_data, f, indent=2)
+        except (OSError, PermissionError):
+            tmp_dir = Path("/tmp/exports")
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            dest_abs = tmp_dir / export_filename
+            with open(dest_abs, "w", encoding="utf-8") as f:
+                json.dump(dossier_data, f, indent=2)
 
         package_checksum = calculate_file_sha256(dest_abs)
         package_size_bytes = dest_abs.stat().st_size

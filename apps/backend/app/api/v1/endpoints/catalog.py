@@ -163,17 +163,31 @@ def get_tile_preview(
     else:
         project_root = current.parents[4]
 
-    thumb_dir = project_root / "data" / "processed" / "thumbnails"
-    thumb_dir.mkdir(parents=True, exist_ok=True)
-    thumb_path = thumb_dir / f"{tile_id}.png"
+    thumb_candidates = [
+        project_root / "data" / "processed" / "thumbnails" / f"{tile_id}.png",
+        project_root / "processed" / "thumbnails" / f"{tile_id}.png",
+        Path("/var/task/data/processed/thumbnails") / f"{tile_id}.png",
+        Path("/var/task/apps/backend/data/processed/thumbnails") / f"{tile_id}.png",
+        Path("/tmp/thumbnails") / f"{tile_id}.png",
+    ]
+    thumb_path = next((p for p in thumb_candidates if p.exists() and p.is_file()), None)
 
-    if not thumb_path.exists():
+    if thumb_path is None:
         # Resolve raster path
-        r_path = Path(tile.path)
-        if not r_path.is_absolute():
-            r_path = (project_root / r_path).resolve()
+        rel_path = Path(tile.path)
+        clean_rel_path = Path(str(tile.path).removeprefix("data/").removeprefix("data\\"))
+        raster_candidates = [
+            rel_path if rel_path.is_absolute() else None,
+            project_root / rel_path,
+            project_root / "data" / clean_rel_path,
+            Path("/var/task") / rel_path,
+            Path("/var/task/apps/backend") / rel_path,
+            Path("/var/task/apps/backend/data") / clean_rel_path,
+            Path("/var/task/data") / clean_rel_path,
+        ]
+        r_path = next((p for p in raster_candidates if p and p.exists() and p.is_file()), None)
 
-        if not r_path.exists():
+        if not r_path:
             raise NotFoundError(f"Raster file not found on disk: {tile.path}")
 
         with rasterio.open(r_path) as src:
@@ -203,13 +217,18 @@ def get_tile_preview(
 
             rgb_arr = np.stack([stretch(r), stretch(g), stretch(b)], axis=-1)
             img = Image.fromarray(rgb_arr, mode="RGB")
+            tmp_dir = Path("/tmp/thumbnails")
             try:
-                img.save(thumb_path, format="PNG")
-            except (OSError, PermissionError):
-                tmp_dir = Path("/tmp/thumbnails")
                 tmp_dir.mkdir(parents=True, exist_ok=True)
-                thumb_path = tmp_dir / f"{r_path.stem}_thumb.png"
+                thumb_path = tmp_dir / f"{tile_id}.png"
                 img.save(thumb_path, format="PNG")
+            except Exception:
+                import io
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                buf.seek(0)
+                from fastapi.responses import Response
+                return Response(content=buf.getvalue(), media_type="image/png")
 
     return FileResponse(thumb_path, media_type="image/png", filename=f"{tile_id}_rgb.png")
 
@@ -249,16 +268,32 @@ def get_scene_preview(
     else:
         project_root = current.parents[4]
 
-    thumb_dir = project_root / "data" / "processed" / "thumbnails"
-    thumb_dir.mkdir(parents=True, exist_ok=True)
-    thumb_path = thumb_dir / f"{scene_id}_full.png"
+    thumb_candidates = [
+        project_root / "data" / "processed" / "thumbnails" / f"{scene_id}_full.png",
+        project_root / "processed" / "thumbnails" / f"{scene_id}_full.png",
+        project_root / "data" / "processed" / "thumbnails" / f"{scene_id}.png",
+        Path("/var/task/data/processed/thumbnails") / f"{scene_id}_full.png",
+        Path("/var/task/apps/backend/data/processed/thumbnails") / f"{scene_id}_full.png",
+        Path("/tmp/thumbnails") / f"{scene_id}_full.png",
+        Path("/tmp/thumbnails") / f"{scene_id}_rgb.png",
+    ]
+    thumb_path = next((p for p in thumb_candidates if p.exists() and p.is_file()), None)
 
-    if not thumb_path.exists():
-        r_path = Path(scene.source_uri)
-        if not r_path.is_absolute():
-            r_path = (project_root / r_path).resolve()
+    if thumb_path is None:
+        rel_uri = Path(scene.source_uri)
+        clean_rel_uri = Path(str(scene.source_uri).removeprefix("data/").removeprefix("data\\"))
+        raster_candidates = [
+            rel_uri if rel_uri.is_absolute() else None,
+            project_root / rel_uri,
+            project_root / "data" / clean_rel_uri,
+            Path("/var/task") / rel_uri,
+            Path("/var/task/apps/backend") / rel_uri,
+            Path("/var/task/apps/backend/data") / clean_rel_uri,
+            Path("/var/task/data") / clean_rel_uri,
+        ]
+        r_path = next((p for p in raster_candidates if p and p.exists() and p.is_file()), None)
 
-        if not r_path.exists():
+        if not r_path:
             raise NotFoundError(f"Scene raster file not found on disk: {scene.source_uri}")
 
         with rasterio.open(r_path) as src:
@@ -288,13 +323,18 @@ def get_scene_preview(
 
             rgb_arr = np.stack([stretch(r), stretch(g), stretch(b)], axis=-1)
             img = Image.fromarray(rgb_arr, mode="RGB")
+            tmp_dir = Path("/tmp/thumbnails")
             try:
-                img.save(thumb_path, format="PNG")
-            except (OSError, PermissionError):
-                tmp_dir = Path("/tmp/thumbnails")
                 tmp_dir.mkdir(parents=True, exist_ok=True)
-                thumb_path = tmp_dir / f"{scene_id}_rgb.png"
+                thumb_path = tmp_dir / f"{scene_id}_full.png"
                 img.save(thumb_path, format="PNG")
+            except Exception:
+                import io
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                buf.seek(0)
+                from fastapi.responses import Response
+                return Response(content=buf.getvalue(), media_type="image/png")
 
     return FileResponse(thumb_path, media_type="image/png", filename=f"{scene_id}_rgb.png")
 

@@ -1,0 +1,206 @@
+{
+  "scene_id": "scn_sentinel-2_20241222_7acad713",
+  "sensor": "SENTINEL-2",
+  "collection": "demo_archive",
+  "acquired_at": "2024-12-22T10:30:00+00:00",
+  "source_uri": "data/samples/scenes/scene_2024_12_22.tif",
+  "crs": "EPSG:32643",
+  "dimensions": [
+    512,
+    512,
+    4
+  ],
+  "bbox_wgs84": [
+    73.575047,
+    18.940777,
+    73.624055,
+    18.987404
+  ],
+  "scene_checksum": "7acad71344a53a733e3b635ae2a57cbef0b5358a4589905519833d75c8821c54",
+  "tile_size": 256,
+  "overlap": 25,
+  "tiles_count": 9,
+  "ingested_at": "2026-09-10T19:18:00.519720+00:00",
+  "tiles": [
+    {
+      "tile_index": 0,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0000",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0000.tif",
+      "bounds_wgs84": [
+        73.575047,
+        18.963907,
+        73.599554,
+        18.987222
+      ],
+      "pixel_window": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "82d41497820b48bce5214b87e782241afed66b9239ffdcfdf7730e95ae925c70"
+    },
+    {
+      "tile_index": 1,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0001",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0001.tif",
+      "bounds_wgs84": [
+        73.596987,
+        18.964074,
+        73.621491,
+        18.987387
+      ],
+      "pixel_window": [
+        231,
+        0,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 7.32,
+      "nodata_percent": 0.0,
+      "checksum": "7351df7b3b54639b139fab88dcfbb0b5cfbf807d25607dd9fceab31f9959979f"
+    },
+    {
+      "tile_index": 2,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0002",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0002.tif",
+      "bounds_wgs84": [
+        73.618926,
+        18.964239,
+        73.623865,
+        18.987404
+      ],
+      "pixel_window": [
+        462,
+        0,
+        50,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "0c7f8e6c42fb772ab5f6cdbac1162888fb07bdf6f72d1cec6107b9520793e45d"
+    },
+    {
+      "tile_index": 3,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0003",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0003.tif",
+      "bounds_wgs84": [
+        73.575225,
+        18.943036,
+        73.599729,
+        18.966351
+      ],
+      "pixel_window": [
+        0,
+        231,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "b1b68ed9655c220f85af468ce1fa09325479fed05c0e5b003063f8760298a818"
+    },
+    {
+      "tile_index": 4,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0004",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0004.tif",
+      "bounds_wgs84": [
+        73.597161,
+        18.943203,
+        73.621662,
+        18.966516
+      ],
+      "pixel_window": [
+        231,
+        231,
+        256,
+        256
+      ],
+      "cloud_cover_percent": 1.1,
+      "nodata_percent": 0.0,
+      "checksum": "d4edbd5c73081327a4bcf3c4c08388161db89d8a5e1ee5784f4f6ab6964c7c65"
+    },
+    {
+      "tile_index": 5,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0005",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0005.tif",
+      "bounds_wgs84": [
+        73.619098,
+        18.943368,
+        73.624036,
+        18.966533
+      ],
+      "pixel_window": [
+        462,
+        231,
+        50,
+        256
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "5f9ccc03a2bc783f16e18623569188fe5f8e0e50dee62f9e85d6e45ef8b49bbf"
+    },
+    {
+      "tile_index": 6,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0006",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0006.tif",
+      "bounds_wgs84": [
+        73.575402,
+        18.940777,
+        73.599747,
+        18.94548
+      ],
+      "pixel_window": [
+        0,
+        462,
+        256,
+        50
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "7f797e6e30020b769fd65cae826f04f6a85ffcb8c7173a3110b2bbcd6898a990"
+    },
+    {
+      "tile_index": 7,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0007",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0007.tif",
+      "bounds_wgs84": [
+        73.597336,
+        18.940945,
+        73.621681,
+        18.945644
+      ],
+      "pixel_window": [
+        231,
+        462,
+        256,
+        50
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "084b308359060b08028ff033ff7e974b71c127e9bf2f9eb08d34979093f386bb"
+    },
+    {
+      "tile_index": 8,
+      "tile_id": "scn_sentinel-2_20241222_7acad713_t0008",
+      "path": "data/processed/scn_sentinel-2_20241222_7acad713/tile_0008.tif",
+      "bounds_wgs84": [
+        73.61927,
+        18.941109,
+        73.624055,
+        18.945662
+      ],
+      "pixel_window": [
+        462,
+        462,
+        50,
+        50
+      ],
+      "cloud_cover_percent": 0.0,
+      "nodata_percent": 0.0,
+      "checksum": "3ba3e1fdf27381c3856df265453e6511d80ff105d16811915347526b38090b02"
+    }
+  ]
+}
