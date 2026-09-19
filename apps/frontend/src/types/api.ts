@@ -220,4 +220,67 @@ export interface ProvenanceGraphResponse {
   summary: Record<string, unknown>;
 }
 
+export interface ParsedQuerySlots {
+  target?: string | null;
+  change?: string | null;
+  context?: string | null;
+  time?: string | null;
+  location?: string | null;
+  sensor?: string | null;
+  quality?: string | null;
+}
+
+export interface ScoreDecomposition {
+  semantic: number;
+  change: number;
+  quality: number;
+  temporal: number;
+  spatial: number;
+  final: number;
+}
+
+export interface ClusterRecord {
+  cluster_id: string;
+  label: string;
+  size: number;
+  representative_tile_id: string;
+  representative_scene_id: string;
+  centroid_lon: number;
+  centroid_lat: number;
+  convex_hull: number[][];
+  avg_similarity: number;
+  tags: string[];
+  created_at: string;
+}
+
+export interface ClusterListResponse {
+  total_clusters: number;
+  algorithm: string;
+  clusters: ClusterRecord[];
+}
+
+export interface ClusterDetailResponse {
+  cluster: ClusterRecord;
+  member_tile_ids: string[];
+}
+
+export interface ExportReportRequest {
+  format: 'html' | 'pdf' | 'geojson' | 'csv';
+  target_id?: string;
+  candidate_ids?: string[];
+  include_provenance?: boolean;
+  include_evidence_thumbnails?: boolean;
+}
+
+export interface ExportReportResponse {
+  export_id: string;
+  format: string;
+  download_url: string;
+  file_name: string;
+  size_bytes: number;
+  checksum_sha256: string;
+  created_at: string;
+}
+
+
 

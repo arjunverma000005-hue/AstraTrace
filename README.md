@@ -34,7 +34,24 @@ It enables intelligence analysts to:
   - **M7:** Quality Gate & False-Alarm Suppression (Optical quality detector, pair usable area, cloud/shadow suppression).
   - **M8:** Search APIs, MapLibre UI & Review Queue (Unified multi-modal search, offline MapLibre GL JS, Evidence-First review queue & triage CLI).
   - **M9:** Provenance Graph & Offline Hardening (Lineage DAG, SHA-256 verifier, forensic dossier export, append audit log, air-gap network tests).
-  - **M10:** Automated Benchmark Evaluation & SIH Presentation (Master evaluation suite, 128 tests, zero-fabrication benchmarks, compliance matrix).
+  - **M10:** Automated Benchmark Evaluation & SIH Presentation (Master evaluation suite, 139 tests, zero-fabrication benchmarks, compliance matrix).
+
+---
+
+## 2.1 Master Technical Documentation & SIH 2026 Dossiers
+
+For defense evaluators, systems architects, and verification teams, comprehensive engineering specifications are available in the repository root and `docs/`:
+
+| Technical Dossier | Location | Primary Operational Focus |
+| :--- | :--- | :--- |
+| **System Architecture** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design, 3-tier storage model, component interactions, API surface, security. |
+| **Data Provenance & Integrity** | [`docs/DATA_PROVENANCE.md`](docs/DATA_PROVENANCE.md) | Cryptographic SHA-256 DAG, parent-child hashing, tamper detection, audit logs. |
+| **Model Provenance & Vectors** | [`docs/MODEL_PROVENANCE.md`](docs/MODEL_PROVENANCE.md) | 512-D orthogonal embeddings, FAISS IndexFlatIP cosine similarity, EuroSAT taxonomy. |
+| **Air-Gapped Deployment** | [`docs/OFFLINE_DEPLOYMENT.md`](docs/OFFLINE_DEPLOYMENT.md) | Zero-network invariant, socket interception test, single-container & compose setups. |
+| **Quantitative Evaluation** | [`docs/EVALUATION.md`](docs/EVALUATION.md) | Precision@K, Recall@K, MRR, nDCG@K, FARR, Otsu clamping, empirical results. |
+| **Incremental Ingestion** | [`docs/INCREMENTAL_INGESTION.md`](docs/INCREMENTAL_INGESTION.md) | $O(N_{\text{new}})$ linear ingestion, CRS validation, atomic tiling, transactional safety. |
+| **5-Min Live Demo Runbook** | [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md) | Turn-by-turn evaluator walkthrough script (00:00–05:00) with dialogue and UI actions. |
+| **Empirical Benchmark Report** | [`docs/BENCHMARK_REPORT.md`](docs/BENCHMARK_REPORT.md) | Certified benchmark execution report with empirical metrics across all subsystems. |
 
 ---
 

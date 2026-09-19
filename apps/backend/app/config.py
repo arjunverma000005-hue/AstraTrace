@@ -17,9 +17,12 @@ class Settings(BaseSettings):
 
     # Core Application
     app_name: str = "AstraTrace"
-    app_version: str = "0.1.0"
-    app_env: str = "development"
+    app_version: str = "2.0.0"
+    app_env: str = "production"
     log_level: str = "INFO"
+
+    # Deployment Profile (OFFLINE_PROFILE: 100% air-gapped | WEB_DEMO_PROFILE)
+    deployment_profile: str = Field(default="OFFLINE_PROFILE", validation_alias=AliasChoices("DEPLOYMENT_PROFILE", "deployment_profile"))
 
     # Server Binding
     api_host: str = "0.0.0.0"
@@ -32,18 +35,28 @@ class Settings(BaseSettings):
     cors_origins: Union[str, List[str]] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://astra-trace.vercel.app",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ]
 
-    # Storage Paths
+    # Three-Tier Storage Paths
     data_dir: str = "data"
-    models_dir: str = "models"
+    immutable_data_dir: str = "data/raw"
+    scratch_dir: str = "data/scratch"
+    models_dir: str = "models/weights"
+    indexes_dir: str = "indexes/faiss"
+    evaluation_dir: str = "data/evaluation"
 
-    # Database Configuration (PostgreSQL in production, SQLite fallback for offline local testing)
+    # Database Configuration (SQLite default for offline air-gapped execution)
     database_url: str = "sqlite:///./data/catalog.db"
-    catalog_database_url: str = Field(default="sqlite:///./data/catalog.db", validation_alias=AliasChoices("CATALOG_DATABASE_URL", "catalog_database_url"))
-    state_database_url: str = Field(default="", validation_alias=AliasChoices("STATE_DATABASE_URL", "POSTGRES_URL", "state_database_url"))
+    catalog_database_url: str = Field(default="sqlite:///./data/catalog.db", validation_alias=AliasChoices("CATALOG_DATABASE_URL", "catalog_database_url", "DATABASE_URL"))
+    state_database_url: str = Field(default="sqlite:///./data/state.db", validation_alias=AliasChoices("STATE_DATABASE_URL", "state_database_url"))
     redis_url: str = "redis://localhost:6379/0"
+
+    # Vector Search Settings
+    vector_dimension: int = 512
+    similarity_metric: str = "COSINE"
+    faiss_index_path: str = "indexes/faiss/astratrace.index"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -23,6 +23,8 @@ COPY --from=builder /install /usr/local
 
 COPY apps/backend/app ./apps/backend/app
 COPY apps/backend/pyproject.toml ./apps/backend/
+COPY astratrace ./astratrace
+COPY scripts ./scripts
 
 # Ensure safe permissions
 RUN chown -R astrauser:astragroup /app

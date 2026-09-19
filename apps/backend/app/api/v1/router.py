@@ -5,7 +5,10 @@ from apps.backend.app.api.v1.endpoints.catalog import router as catalog_router
 from apps.backend.app.api.v1.endpoints.change import router as change_router
 from apps.backend.app.api.v1.endpoints.quality import router as quality_router
 from apps.backend.app.api.v1.endpoints.review import router as review_router
+from apps.backend.app.api.v1.endpoints.clusters import router as clusters_router
 from apps.backend.app.api.v1.endpoints.evaluation import router as evaluation_router
+from apps.backend.app.api.v1.endpoints.export import router as export_router
+from apps.backend.app.api.v1.endpoints.ingestion import router as ingestion_router
 from apps.backend.app.api.v1.endpoints.provenance import router as provenance_router
 from apps.backend.app.api.v1.endpoints.search import router as search_router
 from apps.backend.app.api.v1.endpoints.semantic import router as semantic_router
@@ -21,6 +24,9 @@ router.include_router(stac_router)
 router.include_router(search_router)
 router.include_router(change_router)
 router.include_router(semantic_router)
+router.include_router(clusters_router)
+router.include_router(ingestion_router)
+router.include_router(export_router)
 router.include_router(quality_router)
 router.include_router(review_router)
 router.include_router(provenance_router)

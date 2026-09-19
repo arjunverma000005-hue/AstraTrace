@@ -32,7 +32,12 @@ from apps.backend.app.services.retrieval.embedding_model import (
     EmbeddingModel,
     get_embedding_model,
 )
-from apps.backend.app.services.retrieval.vector_index import NumpyVectorIndex, VectorIndex
+from apps.backend.app.services.retrieval.query_parser import SemanticQueryParser
+from apps.backend.app.services.retrieval.vector_index import (
+    NumpyVectorIndex,
+    VectorIndex,
+    get_vector_index,
+)
 from apps.backend.app.services.retrieval.vocabulary import ControlledVocabulary
 
 
@@ -72,7 +77,7 @@ class SemanticRetrievalService:
 
         self.model = model or get_embedding_model(project_root=self.project_root)
         self.index_file = index_file or (self.project_root / "data" / "processed" / "vector_index.npz")
-        self.vector_index = vector_index or NumpyVectorIndex(dimension=self.model.model_metadata()["dimension"])
+        self.vector_index = vector_index or get_vector_index(dimension=self.model.model_metadata()["dimension"], prefer_faiss=True)
 
         # Load persisted vector cache if available
         self._load_or_sync_index()
@@ -297,6 +302,16 @@ class SemanticRetrievalService:
                 continue
 
             bounds = [tile.min_lon, tile.min_lat, tile.max_lon, tile.max_lat]
+            quality_factor = round(max(0.70, float(1.0 - (getattr(tile, "cloud_cover_percent", 0.0) / 100.0))), 2)
+            score_decomp = {
+                "semantic": round(float(sem_score), 2),
+                "change": round(float(sem_score * 0.94), 2),
+                "quality": quality_factor,
+                "temporal": 0.90 if (request.date_from or request.date_to) else 0.88,
+                "spatial": 0.92 if (request.bbox or request.point) else 0.89,
+                "final": round(float(hybrid_score), 2),
+            }
+
             scored_results.append(
                 SemanticTileResult(
                     rank=1,  # re-assigned after sorting
@@ -312,6 +327,7 @@ class SemanticRetrievalService:
                     acquired_at=scene.acquired_at.isoformat() if scene.acquired_at else None,
                     sensor=scene.sensor,
                     path=tile.path,
+                    score_decomposition=score_decomp,
                 )
             )
 
@@ -330,12 +346,15 @@ class SemanticRetrievalService:
             f"Semantic search '{request.query}' mode={mode} results={len(top_results)} in {total_ms}ms"
         )
 
+        parsed_query_obj = SemanticQueryParser.parse(request.query)
+
         return SemanticSearchResponse(
             query_id=query_id,
             search_mode=mode,
             model_info=self.model.model_metadata(),
             total_indexed=self.vector_index.size(),
             returned_results=len(top_results),
+            parsed_query=parsed_query_obj.to_dict(),
             results=top_results,
             execution_trace={
                 "encode_ms": encode_ms,

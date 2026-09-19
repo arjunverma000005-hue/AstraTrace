@@ -5,7 +5,7 @@ Defines request contracts, tile search result structures, and execution trace me
 """
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -198,7 +198,7 @@ class EvidenceFirstCandidate(BaseModel):
     # 8 Evidence-First Dimensions
     what: str = Field(..., description="WHAT: Primary classification or change detection description")
     where: Dict[str, Any] = Field(..., description="WHERE: WGS84 bbox, centroid, and GeoJSON polygon")
-    when: Optional[str] = Field(None, description="WHEN: Acquisition timestamp or temporal baseline")
+    when: Optional[Union[str, Dict[str, Any]]] = Field(None, description="WHEN: Acquisition timestamp or temporal baseline")
     which: Dict[str, Any] = Field(..., description="WHICH: Sensor, scene ID, tile ID")
     why: Dict[str, Any] = Field(..., description="WHY: Mathematical score decomposition explaining ranking")
     confidence: float = Field(..., ge=0.0, le=1.0, description="CONFIDENCE: Calibrated final confidence")

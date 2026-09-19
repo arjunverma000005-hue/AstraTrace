@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { ApiClient } from '../api/client';
@@ -6,31 +6,60 @@ import { EvidenceFirstCandidate } from '../types/api';
 import {
   SatelliteIcon,
   LayersIcon,
-  EyeIcon,
-  EyeOffIcon,
   CalendarIcon,
-  TargetIcon,
   CrosshairIcon,
   ShieldIcon,
 } from './Icons';
+
+export type ComparisonMode =
+  | 'SINGLE'
+  | 'SWIPE'
+  | 'OPACITY'
+  | 'SPYGLASS'
+  | 'SIDE_BY_SIDE'
+  | 'FLICKER'
+  | 'DIFFERENCE'
+  | 'CHANGE_MASK';
 
 interface MapViewerProps {
   candidates: EvidenceFirstCandidate[];
   selectedCandidate: EvidenceFirstCandidate | null;
   onSelectCandidate: (candidate: EvidenceFirstCandidate) => void;
+  activeEpoch?: 'T1' | 'T2';
+  onEpochChange?: (epoch: 'T1' | 'T2') => void;
 }
 
 export const MapViewer: React.FC<MapViewerProps> = ({
   candidates,
   selectedCandidate,
   onSelectCandidate,
+  activeEpoch: controlledEpoch,
+  onEpochChange,
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showAllFootprints, setShowAllFootprints] = useState<boolean>(true);
-  const [activeEpoch, setActiveEpoch] = useState<'T1' | 'T2'>('T1');
+
+  const activeEpoch = controlledEpoch !== undefined ? controlledEpoch : 'T1';
+  const handleEpochChange = (epoch: 'T1' | 'T2') => {
+    if (onEpochChange) onEpochChange(epoch);
+  };
+
+  // 7 Comparison Modes State
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('SWIPE');
+  const [swipePos, setSwipePos] = useState<number>(50); // percentage 0 - 100
+  const [opacityVal, setOpacityVal] = useState<number>(0.5); // 0.0 - 1.0
+  const [spyglassPos, setSpyglassPos] = useState<{ x: number; y: number }>({ x: 300, y: 240 });
+  const [spyglassRadius, setSpyglassRadius] = useState<number>(110);
+  const [isFlickering, setIsFlickering] = useState<boolean>(true);
+  const [flickerIntervalMs, setFlickerIntervalMs] = useState<number>(500);
+  const [flickerFrame, setFlickerFrame] = useState<'T1' | 'T2'>('T1');
+  const [isDraggingSwipe, setIsDraggingSwipe] = useState<boolean>(false);
+  const [isDraggingSpyglass, setIsDraggingSpyglass] = useState<boolean>(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Initialize MapLibre GL instance with 100% offline self-contained style
   useEffect(() => {
@@ -100,7 +129,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
     const rasterSourceId = 'selected-candidate-raster-source';
     const rasterLayerId = 'selected-candidate-raster-layer';
 
-    // Spatial deduplication: if multiple temporal observations share the same bbox, retain one feature
+    // Spatial deduplication
     const seenBoxes = new Set<string>();
     const deduped: EvidenceFirstCandidate[] = [];
     for (const c of candidates) {
@@ -160,7 +189,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         data: geojson,
       });
 
-      // 1. Semi-transparent footprint fill (layer visibility controlled by showAllFootprints)
+      // Semi-transparent footprint fill
       map.addLayer({
         id: fillLayerId,
         type: 'fill',
@@ -188,7 +217,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         },
       });
 
-      // 2. Footprint borders for general candidates (hidden when showAllFootprints is OFF)
+      // Footprint borders
       map.addLayer({
         id: lineAllLayerId,
         type: 'line',
@@ -204,7 +233,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         },
       });
 
-      // 3. Highlight border for SELECTED candidate (ALWAYS visible for orientation)
+      // Highlight border for SELECTED candidate
       map.addLayer({
         id: lineSelectedLayerId,
         type: 'line',
@@ -214,13 +243,12 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           visibility: 'visible',
         },
         paint: {
-          'line-color': '#facc15', // High-visibility yellow
+          'line-color': '#facc15',
           'line-width': 2.5,
           'line-opacity': 0.95,
         },
       });
 
-      // Interactive selection
       map.on('click', fillLayerId, (e: any) => {
         if (e.features && e.features[0]) {
           const cid = e.features[0].properties?.candidate_id;
@@ -233,17 +261,9 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           if (match) onSelectCandidate(match);
         }
       });
-
-      map.on('mouseenter', fillLayerId, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-
-      map.on('mouseleave', fillLayerId, () => {
-        map.getCanvas().style.cursor = '';
-      });
     }
 
-    // Dynamic Full Georeferenced Optical Sentinel-2 Raster Underlay
+    // Raster Underlay
     let rasterUrl: string | null = null;
     let rasterCoords:
       | [[number, number], [number, number], [number, number], [number, number]]
@@ -255,19 +275,10 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         Boolean(selectedCandidate.evidence?.before_scene_preview_url);
 
       if (isChange) {
-        if (activeEpoch === 'T1') {
-          rasterUrl =
-            selectedCandidate.evidence?.before_scene_preview_url ||
-            selectedCandidate.evidence?.scene_preview_url ||
-            selectedCandidate.evidence?.preview_url ||
-            null;
-        } else {
-          rasterUrl =
-            selectedCandidate.evidence?.after_scene_preview_url ||
-            selectedCandidate.evidence?.scene_preview_url ||
-            selectedCandidate.evidence?.preview_url ||
-            null;
-        }
+        rasterUrl =
+          activeEpoch === 'T1'
+            ? selectedCandidate.evidence?.before_scene_preview_url || selectedCandidate.evidence?.preview_url || null
+            : selectedCandidate.evidence?.after_scene_preview_url || selectedCandidate.evidence?.scene_preview_url || selectedCandidate.evidence?.preview_url || null;
       } else {
         rasterUrl =
           selectedCandidate.evidence?.scene_preview_url ||
@@ -277,16 +288,15 @@ export const MapViewer: React.FC<MapViewerProps> = ({
             : null);
       }
 
-      // True georeferenced raster extent in WGS84
       rasterCoords =
         selectedCandidate.evidence?.scene_coordinates ||
         selectedCandidate.where?.coordinates ||
         (selectedCandidate.where?.bbox
           ? [
-              [selectedCandidate.where.bbox[0], selectedCandidate.where.bbox[3]], // TL: minLon, maxLat
-              [selectedCandidate.where.bbox[2], selectedCandidate.where.bbox[3]], // TR: maxLon, maxLat
-              [selectedCandidate.where.bbox[2], selectedCandidate.where.bbox[1]], // BR: maxLon, minLat
-              [selectedCandidate.where.bbox[0], selectedCandidate.where.bbox[1]], // BL: minLon, minLat
+              [selectedCandidate.where.bbox[0], selectedCandidate.where.bbox[3]],
+              [selectedCandidate.where.bbox[2], selectedCandidate.where.bbox[3]],
+              [selectedCandidate.where.bbox[2], selectedCandidate.where.bbox[1]],
+              [selectedCandidate.where.bbox[0], selectedCandidate.where.bbox[1]],
             ]
           : null);
     }
@@ -319,12 +329,8 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         }
       } else {
         try {
-          if (map.getLayer(rasterLayerId)) {
-            map.removeLayer(rasterLayerId);
-          }
-          if (map.getSource(rasterSourceId)) {
-            map.removeSource(rasterSourceId);
-          }
+          if (map.getLayer(rasterLayerId)) map.removeLayer(rasterLayerId);
+          if (map.getSource(rasterSourceId)) map.removeSource(rasterSourceId);
           map.addSource(rasterSourceId, {
             type: 'image',
             url: rasterUrl,
@@ -348,245 +354,412 @@ export const MapViewer: React.FC<MapViewerProps> = ({
         }
       }
     } else {
-      if (map.getLayer(rasterLayerId)) {
-        map.removeLayer(rasterLayerId);
-      }
-      if (map.getSource(rasterSourceId)) {
-        map.removeSource(rasterSourceId);
-      }
+      if (map.getLayer(rasterLayerId)) map.removeLayer(rasterLayerId);
+      if (map.getSource(rasterSourceId)) map.removeSource(rasterSourceId);
     }
 
-    // Auto-fit camera: Prioritize full georeferenced scene extent for the selected candidate
+    // Auto-fit camera
     if (selectedCandidate) {
-      const targetBbox =
-        selectedCandidate.evidence?.scene_bbox || selectedCandidate.where.bbox;
+      const targetBbox = selectedCandidate.evidence?.scene_bbox || selectedCandidate.where.bbox;
       const [minLon, minLat, maxLon, maxLat] = targetBbox;
-      map.fitBounds(
-        [
-          [minLon, minLat],
-          [maxLon, maxLat],
-        ],
-        { padding: 40, maxZoom: 15, duration: 800 },
-      );
-    } else if (candidates.length > 0) {
-      const primaryCluster = candidates.filter(
-        (c) =>
-          candidates[0].where.centroid[1] > 25
-            ? c.where.centroid[1] > 25
-            : c.where.centroid[1] <= 25,
-      );
-      const targetCandidates = primaryCluster.length > 0 ? primaryCluster : candidates;
-      const allLons = targetCandidates.flatMap((c) => [c.where.bbox[0], c.where.bbox[2]]);
-      const allLats = targetCandidates.flatMap((c) => [c.where.bbox[1], c.where.bbox[3]]);
-      const bounds: [number, number, number, number] = [
-        Math.min(...allLons),
-        Math.min(...allLats),
-        Math.max(...allLons),
-        Math.max(...allLats),
-      ];
-      map.fitBounds(
-        [
-          [bounds[0], bounds[1]],
-          [bounds[2], bounds[3]],
-        ],
-        { padding: 50, maxZoom: 13.5, duration: 800 },
-      );
+      map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 40, maxZoom: 15, duration: 800 });
     }
   }, [candidates, selectedCandidate, mapLoaded, onSelectCandidate, activeEpoch]);
 
-  // Deterministic MapLibre layer visibility effect (Phase 2)
+  // Flicker interval timer
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapLoaded) return;
-    const visibility = showAllFootprints ? 'visible' : 'none';
-    if (map.getLayer('candidates-fill')) {
-      map.setLayoutProperty('candidates-fill', 'visibility', visibility);
+    if (comparisonMode !== 'FLICKER' || !isFlickering) return;
+    const interval = setInterval(() => {
+      setFlickerFrame((prev) => {
+        const next = prev === 'T1' ? 'T2' : 'T1';
+        handleEpochChange(next);
+        return next;
+      });
+    }, flickerIntervalMs);
+    return () => clearInterval(interval);
+  }, [comparisonMode, isFlickering, flickerIntervalMs]);
+
+  // Mouse handlers for swipe and spyglass drag
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (isDraggingSwipe) {
+      const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      setSwipePos(pct);
     }
-    if (map.getLayer('candidates-line-all')) {
-      map.setLayoutProperty('candidates-line-all', 'visibility', visibility);
+
+    if (isDraggingSpyglass || comparisonMode === 'SPYGLASS') {
+      setSpyglassPos({ x, y });
     }
-  }, [showAllFootprints, mapLoaded]);
+  }, [isDraggingSwipe, isDraggingSpyglass, comparisonMode]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingSwipe(false);
+    setIsDraggingSpyglass(false);
+  }, []);
 
   const currentCandidate = selectedCandidate || (candidates.length > 0 ? candidates[0] : null);
-  const aoiLabel =
-    currentCandidate && currentCandidate.where.centroid[1] > 25
-      ? 'Jewar Airport Corridor (T43RGM • EPSG:32643)'
-      : 'Western Ghats, MH (EPSG:32643 / EPSG:4326)';
-
   const isBitemporal =
     selectedCandidate?.target_type === 'CHANGE' ||
     Boolean(selectedCandidate?.evidence?.before_date || selectedCandidate?.evidence?.before_scene_preview_url);
 
+  const t1Url = selectedCandidate?.evidence?.before_scene_preview_url || selectedCandidate?.evidence?.preview_url;
+  const t2Url = selectedCandidate?.evidence?.after_scene_preview_url || selectedCandidate?.evidence?.scene_preview_url || selectedCandidate?.evidence?.preview_url;
+  const maskUrl = selectedCandidate?.evidence?.mask_url || (selectedCandidate?.target_id ? ApiClient.getChangeMaskUrl(selectedCandidate.target_id) : '');
+
   const beforeDateStr = selectedCandidate?.evidence?.before_date || '2023-02-03';
   const afterDateStr = selectedCandidate?.evidence?.after_date || '2024-11-29';
 
-  const handleFitAOI = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (selectedCandidate?.where?.bbox) {
-      const b = selectedCandidate.where.bbox;
-      map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 60, maxZoom: 14, duration: 600 });
-    } else {
-      map.fitBounds([[77.526735, 28.132871], [77.633167, 28.227179]], { padding: 40, maxZoom: 13, duration: 600 });
-    }
-  };
-
   return (
-    <div style={styles.container}>
-      {/* Map Header Overlay Bar */}
+    <div
+      ref={containerRef}
+      style={styles.container}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {mapError && <div style={styles.errorAlert}>{mapError}</div>}
+      {/* Top Map Header Overlay Bar */}
       <div style={styles.overlayBar}>
         {/* Left: AOI & Satellite Sensor Context */}
         <div style={styles.aoiBadge}>
           <SatelliteIcon size={16} color="#38bdf8" />
           <span style={styles.dot} />
-          <span style={styles.aoiText}>{aoiLabel}</span>
+          <span style={styles.aoiText}>
+            {currentCandidate && currentCandidate.where.centroid[1] > 25
+              ? 'Jewar Airport Corridor (T43RGM • EPSG:32643)'
+              : 'Western Ghats, MH (EPSG:32643)'}
+          </span>
           <span style={styles.airGapTag}>
             <ShieldIcon size={10} color="#10b981" style={{ marginRight: '3px' }} />
             AIR-GAPPED
           </span>
         </div>
 
-        {/* Center: Bitemporal Switcher (T1 / T2) */}
+        {/* Center: 7 Comparison Modes Toolbar */}
         {isBitemporal && (
-          <div style={styles.temporalControlGroup}>
-            <button
-              type="button"
-              onClick={() => setActiveEpoch('T1')}
-              style={{
-                ...styles.epochBtn,
-                backgroundColor: activeEpoch === 'T1' ? '#38bdf8' : '#0f1722',
-                color: activeEpoch === 'T1' ? '#06090e' : '#94a3b8',
-                borderColor: activeEpoch === 'T1' ? '#38bdf8' : '#182635',
-              }}
-              title="Switch main map optical raster to T1 (Before) observation"
-            >
-              <CalendarIcon size={13} color={activeEpoch === 'T1' ? '#06090e' : '#38bdf8'} />
-              <span>T1 BEFORE</span>
-              <span style={{
-                ...styles.epochDateBadge,
-                backgroundColor: activeEpoch === 'T1' ? 'rgba(6, 9, 14, 0.4)' : '#06090e',
-                color: activeEpoch === 'T1' ? '#06090e' : '#f8fafc',
-              }}>
-                {beforeDateStr}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveEpoch('T2')}
-              style={{
-                ...styles.epochBtn,
-                backgroundColor: activeEpoch === 'T2' ? '#38bdf8' : '#0f1722',
-                color: activeEpoch === 'T2' ? '#06090e' : '#94a3b8',
-                borderColor: activeEpoch === 'T2' ? '#38bdf8' : '#182635',
-              }}
-              title="Switch main map optical raster to T2 (After) observation"
-            >
-              <CalendarIcon size={13} color={activeEpoch === 'T2' ? '#06090e' : '#38bdf8'} />
-              <span>T2 AFTER</span>
-              <span style={{
-                ...styles.epochDateBadge,
-                backgroundColor: activeEpoch === 'T2' ? 'rgba(6, 9, 14, 0.4)' : '#06090e',
-                color: activeEpoch === 'T2' ? '#06090e' : '#f8fafc',
-              }}>
-                {afterDateStr}
-              </span>
-            </button>
+          <div style={styles.modeButtonGroup}>
+            {(
+              [
+                { id: 'SINGLE', label: 'SINGLE' },
+                { id: 'SWIPE', label: 'SWIPE ⬌' },
+                { id: 'OPACITY', label: 'OPACITY ◐' },
+                { id: 'SPYGLASS', label: 'SPYGLASS ⊙' },
+                { id: 'SIDE_BY_SIDE', label: 'SIDE-BY-SIDE ◫' },
+                { id: 'FLICKER', label: 'FLICKER ⚡' },
+                { id: 'DIFFERENCE', label: 'DIFF Δ' },
+                { id: 'CHANGE_MASK', label: 'MASK ▦' },
+              ] as { id: ComparisonMode; label: string }[]
+            ).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setComparisonMode(m.id)}
+                style={{
+                  ...styles.modeBtn,
+                  backgroundColor: comparisonMode === m.id ? '#38bdf8' : '#0f1722',
+                  color: comparisonMode === m.id ? '#06090e' : '#94a3b8',
+                  borderColor: comparisonMode === m.id ? '#38bdf8' : '#1e293b',
+                  fontWeight: comparisonMode === m.id ? 800 : 500,
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Right: Layer Visibility & Legend Controls */}
+        {/* Right: Controls */}
         <div style={styles.headerControls}>
           <button
             type="button"
-            onClick={handleFitAOI}
-            style={styles.fitBtn}
-            title="Fit view to target boundary"
-          >
-            <TargetIcon size={13} color="#38bdf8" />
-            <span>FIT TARGET</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setShowAllFootprints((prev) => !prev)}
-            style={{
-              ...styles.toggleBtn,
-              backgroundColor: showAllFootprints
-                ? 'rgba(56, 189, 248, 0.12)'
-                : '#0f1722',
-              color: showAllFootprints ? '#38bdf8' : '#64748b',
-              borderColor: showAllFootprints ? '#38bdf8' : '#182635',
-            }}
-            title={
-              showAllFootprints
-                ? 'Hide all candidate footprints (keep selected outline)'
-                : 'Show all candidate footprint outlines'
-            }
+            style={styles.toggleBtn}
+            title="Toggle candidate footprint outlines"
           >
             <LayersIcon size={13} color={showAllFootprints ? '#38bdf8' : '#64748b'} />
             <span>FOOTPRINTS {showAllFootprints ? 'ON' : 'OFF'}</span>
-            {showAllFootprints ? (
-              <EyeIcon size={12} color="#38bdf8" />
-            ) : (
-              <EyeOffIcon size={12} color="#64748b" />
-            )}
           </button>
-
-          <div style={styles.legend}>
-            <span style={{ ...styles.legendItem, color: '#38bdf8' }}>■ Pending</span>
-            <span style={{ ...styles.legendItem, color: '#10b981' }}>■ Confirmed</span>
-            <span style={{ ...styles.legendItem, color: '#f59e0b' }}>■ Flagged</span>
-            <span style={{ ...styles.legendItem, color: '#ef4444' }}>■ Rejected</span>
-          </div>
         </div>
       </div>
 
-      {/* Central Tactical Reticle Overlay */}
-      <div style={styles.reticleOverlay}>
-        <CrosshairIcon size={36} color="rgba(56, 189, 248, 0.25)" />
-      </div>
+      {/* Mode Specific Interactive Control Bar */}
+      {isBitemporal && comparisonMode !== 'SINGLE' && (
+        <div style={styles.subControlBar}>
+          {comparisonMode === 'SWIPE' && (
+            <div style={styles.subControlRow}>
+              <span style={styles.subControlLabel}>SWIPE DIVIDER:</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={swipePos}
+                onChange={(e) => setSwipePos(Number(e.target.value))}
+                style={styles.slider}
+              />
+              <span style={styles.subControlVal}>{Math.round(swipePos)}%</span>
+              <span style={styles.subControlHint}>[T1 Before ({beforeDateStr}) ◀ | ▶ T2 After ({afterDateStr})]</span>
+            </div>
+          )}
+
+          {comparisonMode === 'OPACITY' && (
+            <div style={styles.subControlRow}>
+              <span style={styles.subControlLabel}>T2 OPACITY CROSS-FADER:</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={opacityVal}
+                onChange={(e) => setOpacityVal(Number(e.target.value))}
+                style={styles.slider}
+              />
+              <span style={styles.subControlVal}>{Math.round(opacityVal * 100)}%</span>
+              <span style={styles.subControlHint}>[0% = Pure T1 Before | 100% = Pure T2 After]</span>
+            </div>
+          )}
+
+          {comparisonMode === 'SPYGLASS' && (
+            <div style={styles.subControlRow}>
+              <span style={styles.subControlLabel}>LOUPE RADIUS:</span>
+              <input
+                type="range"
+                min={60}
+                max={220}
+                value={spyglassRadius}
+                onChange={(e) => setSpyglassRadius(Number(e.target.value))}
+                style={styles.slider}
+              />
+              <span style={styles.subControlVal}>{spyglassRadius}px</span>
+              <span style={styles.subControlHint}>Move cursor over map to reveal T2 Post-Event inside lens</span>
+            </div>
+          )}
+
+          {comparisonMode === 'FLICKER' && (
+            <div style={styles.subControlRow}>
+              <button
+                type="button"
+                onClick={() => setIsFlickering(!isFlickering)}
+                style={styles.flickerToggleBtn}
+              >
+                {isFlickering ? '⏸ PAUSE FLICKER' : '▶ RESUME FLICKER'}
+              </button>
+              <span style={styles.subControlLabel}>RATE:</span>
+              <select
+                value={flickerIntervalMs}
+                onChange={(e) => setFlickerIntervalMs(Number(e.target.value))}
+                style={styles.select}
+              >
+                <option value={750}>0.75s (Slow)</option>
+                <option value={500}>0.50s (Nominal)</option>
+                <option value={250}>0.25s (Fast)</option>
+                <option value={150}>0.15s (Rapid)</option>
+              </select>
+              <span style={{ ...styles.subControlVal, color: flickerFrame === 'T1' ? '#38bdf8' : '#10b981' }}>
+                ACTIVE: {flickerFrame === 'T1' ? `T1 (${beforeDateStr})` : `T2 (${afterDateStr})`}
+              </span>
+            </div>
+          )}
+
+          {comparisonMode === 'DIFFERENCE' && (
+            <div style={styles.subControlRow}>
+              <span style={styles.subControlLabel}>SPECTRAL DIFFERENCE BLEND:</span>
+              <span style={styles.subControlHint}>
+                Absolute delta |T2 - T1| with high-contrast luminance inversion. Alterations and new pavement glow brightly.
+              </span>
+            </div>
+          )}
+
+          {comparisonMode === 'CHANGE_MASK' && (
+            <div style={styles.subControlRow}>
+              <span style={styles.subControlLabel}>THRESHOLDED CHANGE MASK:</span>
+              <span style={styles.subControlHint}>
+                Pure-NumPy 8-connected component filter & Otsu thresholded binary mask.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* MapLibre Canvas Container */}
       <div ref={mapContainer} style={styles.mapCanvas} />
 
-      {/* Resilient Tactical Fallback if WebGL is unavailable */}
-      {mapError && (
-        <div style={styles.fallbackContainer}>
-          <div style={styles.fallbackHeader}>
-            <SatelliteIcon size={24} color="#38bdf8" />
-            <div>
-              <h4 style={styles.fallbackTitle}>Tactical 2D Vector Footprint Display</h4>
-              <span style={styles.fallbackSubtitle}>Offline Local Vector Grid</span>
+      {/* Interactive Overlays for Advanced Comparison Modes */}
+      {isBitemporal && t1Url && t2Url && (
+        <>
+          {/* Mode 1: SWIPE Overlay */}
+          {comparisonMode === 'SWIPE' && (
+            <div style={styles.swipeContainer}>
+              {/* T2 Clip Layer */}
+              <div
+                style={{
+                  ...styles.swipeLayer,
+                  clipPath: `inset(0 0 0 ${swipePos}%)`,
+                }}
+              >
+                <img src={t2Url} alt="T2 After" style={styles.fullImg} />
+                <span style={styles.swipeBadgeRight}>T2 AFTER ({afterDateStr})</span>
+              </div>
+
+              {/* T1 Under Layer */}
+              <div
+                style={{
+                  ...styles.swipeLayer,
+                  clipPath: `inset(0 ${100 - swipePos}% 0 0)`,
+                  zIndex: 2,
+                }}
+              >
+                <img src={t1Url} alt="T1 Before" style={styles.fullImg} />
+                <span style={styles.swipeBadgeLeft}>T1 BEFORE ({beforeDateStr})</span>
+              </div>
+
+              {/* Draggable Divider Handle */}
+              <div
+                style={{
+                  ...styles.swipeDivider,
+                  left: `${swipePos}%`,
+                }}
+                onMouseDown={() => setIsDraggingSwipe(true)}
+              >
+                <div style={styles.dividerLine} />
+                <div style={styles.dividerHandle}>
+                  <span>⬌</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div style={styles.gridContainer}>
-            {candidates.map((c) => {
-              const isSelected = selectedCandidate?.candidate_id === c.candidate_id;
-              return (
-                <div
-                  key={c.candidate_id}
-                  onClick={() => onSelectCandidate(c)}
+          )}
+
+          {/* Mode 2: OPACITY Cross-fade Overlay */}
+          {comparisonMode === 'OPACITY' && (
+            <div style={styles.opacityContainer}>
+              <img src={t1Url} alt="T1 Base" style={styles.opacityImg} />
+              <img
+                src={t2Url}
+                alt="T2 Overlay"
+                style={{
+                  ...styles.opacityImg,
+                  opacity: opacityVal,
+                }}
+              />
+              <div style={styles.opacityHud}>
+                <span>T1: {Math.round((1 - opacityVal) * 100)}%</span>
+                <span>T2: {Math.round(opacityVal * 100)}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Mode 3: SPYGLASS / LOUPE Overlay */}
+          {comparisonMode === 'SPYGLASS' && (
+            <div style={styles.spyglassContainer}>
+              {/* Base T1 Image */}
+              <img src={t1Url} alt="T1 Background" style={styles.spyglassBaseImg} />
+
+              {/* Circular Loupe revealing T2 */}
+              <div
+                style={{
+                  ...styles.spyglassLens,
+                  left: `${spyglassPos.x - spyglassRadius}px`,
+                  top: `${spyglassPos.y - spyglassRadius}px`,
+                  width: `${spyglassRadius * 2}px`,
+                  height: `${spyglassRadius * 2}px`,
+                }}
+              >
+                <img
+                  src={t2Url}
+                  alt="T2 Inside Loupe"
                   style={{
-                    ...styles.gridCard,
-                    borderColor: isSelected ? '#facc15' : '#334155',
-                    backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.15)' : '#1e293b',
+                    position: 'absolute',
+                    left: `-${spyglassPos.x - spyglassRadius}px`,
+                    top: `-${spyglassPos.y - spyglassRadius}px`,
+                    width: containerRef.current?.clientWidth || '100%',
+                    height: containerRef.current?.clientHeight || '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+                <div style={styles.lensCrosshair}>
+                  <CrosshairIcon size={24} color="#38bdf8" />
+                </div>
+                <span style={styles.lensBadge}>T2 AFTER</span>
+              </div>
+            </div>
+          )}
+
+          {/* Mode 4: SIDE_BY_SIDE Synchronized View */}
+          {comparisonMode === 'SIDE_BY_SIDE' && (
+            <div style={styles.sideBySideContainer}>
+              <div style={styles.sideCol}>
+                <div style={styles.sideHeader}>
+                  <CalendarIcon size={12} color="#38bdf8" />
+                  <span>T1 PRE-EVENT ({beforeDateStr})</span>
+                </div>
+                <img src={t1Url} alt="T1 Side" style={styles.sideImg} />
+              </div>
+              <div style={styles.sideDivider} />
+              <div style={styles.sideCol}>
+                <div style={styles.sideHeader}>
+                  <CalendarIcon size={12} color="#10b981" />
+                  <span>T2 POST-EVENT ({afterDateStr})</span>
+                </div>
+                <img src={t2Url} alt="T2 Side" style={styles.sideImg} />
+              </div>
+            </div>
+          )}
+
+          {/* Mode 5: FLICKER Rapid Alternation */}
+          {comparisonMode === 'FLICKER' && (
+            <div style={styles.flickerContainer}>
+              <img
+                src={flickerFrame === 'T1' ? t1Url : t2Url}
+                alt="Flicker Frame"
+                style={styles.fullImg}
+              />
+              <div style={styles.flickerIndicator}>
+                <span
+                  style={{
+                    ...styles.flickerBadge,
+                    backgroundColor: flickerFrame === 'T1' ? '#38bdf8' : '#10b981',
+                    color: '#06090e',
                   }}
                 >
-                  <div style={styles.gridCardHeader}>
-                    <span style={styles.rankBadge}>#{c.rank}</span>
-                    <span style={styles.confBadge}>{(c.confidence * 100).toFixed(0)}%</span>
-                  </div>
-                  <div style={styles.gridCardTitle}>{c.what}</div>
-                  <div style={styles.gridCardSub}>{c.target_id}</div>
-                  <div style={styles.gridCoords}>
-                    {c.where.centroid[1].toFixed(4)}°N, {c.where.centroid[0].toFixed(4)}°E
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                  {flickerFrame === 'T1' ? `T1 BEFORE (${beforeDateStr})` : `T2 AFTER (${afterDateStr})`}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Mode 6: DIFFERENCE High-Contrast Blend */}
+          {comparisonMode === 'DIFFERENCE' && (
+            <div style={styles.differenceContainer}>
+              <img src={t1Url} alt="T1 Base" style={styles.diffBaseImg} />
+              <img src={t2Url} alt="T2 Diff" style={styles.diffBlendImg} />
+              <div style={styles.diffHud}>
+                <span style={styles.diffHudTitle}>SPECTRAL DIFFERENCE MAP (HIGH CONSTRAST)</span>
+                <span style={styles.diffHudSub}>Neon highlights indicate genuine land-cover structural deviations</span>
+              </div>
+            </div>
+          )}
+
+          {/* Mode 7: CHANGE MASK Direct Thresholded Overlay */}
+          {comparisonMode === 'CHANGE_MASK' && (
+            <div style={styles.changeMaskContainer}>
+              <img src={t2Url} alt="T2 Satellite" style={styles.fullImg} />
+              {maskUrl && (
+                <img
+                  src={maskUrl}
+                  alt="Change Mask"
+                  style={styles.maskOverlayImg}
+                />
+              )}
+              <div style={styles.maskHud}>
+                <span style={styles.maskHudBadge}>OTSU CLAMPED BINARY CHANGE MASK</span>
+                <span style={styles.maskHudSub}>Red clusters represent filtered 8-connected changed pixels</span>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -600,222 +773,445 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '480px',
     backgroundColor: '#06090e',
     overflow: 'hidden',
-    borderRadius: '8px',
-    border: '1px solid #182635',
-  },
-  mapCanvas: {
-    width: '100%',
-    height: '100%',
-    minHeight: '480px',
+    userSelect: 'none',
   },
   overlayBar: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    zIndex: 10,
+    top: '12px',
+    left: '12px',
+    right: '12px',
+    zIndex: 20,
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: '10px',
-    padding: '8px 14px',
-    backgroundColor: 'rgba(9, 14, 22, 0.9)',
-    backdropFilter: 'blur(12px)',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(11, 17, 24, 0.92)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid #1e293b',
     borderRadius: '6px',
-    border: '1px solid rgba(24, 38, 53, 0.9)',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
-    pointerEvents: 'none',
+    padding: '6px 12px',
+    gap: '12px',
   },
   aoiBadge: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    fontSize: '0.78rem',
-    fontWeight: 600,
-    color: '#cbd5e1',
-    letterSpacing: '0.03em',
-    pointerEvents: 'auto',
-  },
-  aoiText: {
-    whiteSpace: 'nowrap',
-    fontFamily: 'monospace',
-    letterSpacing: '0.04em',
-  },
-  airGapTag: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '2px 6px',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    border: '1px solid rgba(16, 185, 129, 0.3)',
-    borderRadius: '4px',
-    fontSize: '0.62rem',
+    fontSize: '0.75rem',
     fontWeight: 700,
-    color: '#10b981',
-    letterSpacing: '0.08em',
-    fontFamily: 'monospace',
-    marginLeft: '6px',
+    color: '#e2e8f0',
   },
   dot: {
-    width: '7px',
-    height: '7px',
+    width: '6px',
+    height: '6px',
     borderRadius: '50%',
     backgroundColor: '#10b981',
-    boxShadow: '0 0 8px #10b981',
-    flexShrink: 0,
   },
-  temporalControlGroup: {
+  aoiText: {
+    fontFamily: 'ui-monospace, monospace',
+  },
+  airGapTag: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    pointerEvents: 'auto',
-  },
-  epochBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '5px 12px',
-    fontSize: '0.72rem',
-    fontWeight: 700,
-    letterSpacing: '0.05em',
-    borderRadius: '4px',
-    border: '1px solid',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-  },
-  epochDateBadge: {
-    fontSize: '0.66rem',
+    fontSize: '0.65rem',
+    fontWeight: 800,
+    color: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     padding: '2px 6px',
     borderRadius: '3px',
-    fontFamily: 'monospace',
-    letterSpacing: '0.02em',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+  },
+  modeButtonGroup: {
+    display: 'flex',
+    gap: '4px',
+    backgroundColor: '#0c131c',
+    padding: '3px',
+    borderRadius: '4px',
+    border: '1px solid #1e293b',
+  },
+  modeBtn: {
+    border: '1px solid transparent',
+    padding: '4px 8px',
+    fontSize: '0.68rem',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    letterSpacing: '0.04em',
+    transition: 'all 0.15s ease',
   },
   headerControls: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    pointerEvents: 'auto',
-  },
-  fitBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '5px 11px',
-    fontSize: '0.72rem',
-    fontWeight: 600,
-    letterSpacing: '0.04em',
-    borderRadius: '4px',
-    border: '1px solid #182635',
-    backgroundColor: '#0f1722',
-    color: '#cbd5e1',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    gap: '8px',
   },
   toggleBtn: {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '5px 11px',
-    fontSize: '0.72rem',
+    backgroundColor: '#0f172a',
+    border: '1px solid #334155',
+    color: '#94a3b8',
+    padding: '5px 10px',
+    fontSize: '0.7rem',
     fontWeight: 600,
-    letterSpacing: '0.04em',
     borderRadius: '4px',
-    border: '1px solid',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
   },
-  legend: {
-    display: 'flex',
-    gap: '10px',
-    fontSize: '0.72rem',
-    fontWeight: 600,
-    fontFamily: 'monospace',
+  subControlBar: {
+    position: 'absolute',
+    top: '56px',
+    left: '12px',
+    right: '12px',
+    zIndex: 19,
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid #1e293b',
+    borderRadius: '4px',
+    padding: '6px 12px',
   },
-  legendItem: {
+  subControlRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
-    whiteSpace: 'nowrap',
+    gap: '12px',
+    fontSize: '0.75rem',
   },
-  reticleOverlay: {
+  subControlLabel: {
+    color: '#94a3b8',
+    fontWeight: 700,
+    letterSpacing: '0.05em',
+  },
+  subControlVal: {
+    color: '#38bdf8',
+    fontWeight: 800,
+    fontFamily: 'monospace',
+  },
+  subControlHint: {
+    color: '#64748b',
+    fontSize: '0.7rem',
+    marginLeft: 'auto',
+  },
+  slider: {
+    width: '140px',
+    cursor: 'pointer',
+  },
+  select: {
+    backgroundColor: '#070d19',
+    border: '1px solid #334155',
+    color: '#f8fafc',
+    padding: '3px 8px',
+    fontSize: '0.7rem',
+    borderRadius: '3px',
+    cursor: 'pointer',
+  },
+  flickerToggleBtn: {
+    backgroundColor: '#38bdf8',
+    color: '#06090e',
+    border: 'none',
+    padding: '4px 10px',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    borderRadius: '3px',
+    cursor: 'pointer',
+  },
+  mapCanvas: {
+    width: '100%',
+    height: '100%',
+  },
+  swipeContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    overflow: 'hidden',
+  },
+  swipeLayer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+  },
+  fullImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  swipeBadgeLeft: {
+    position: 'absolute',
+    top: '12px',
+    left: '12px',
+    backgroundColor: 'rgba(6, 9, 14, 0.8)',
+    color: '#38bdf8',
+    border: '1px solid #38bdf8',
+    padding: '4px 8px',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    borderRadius: '3px',
+  },
+  swipeBadgeRight: {
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    backgroundColor: 'rgba(6, 9, 14, 0.8)',
+    color: '#10b981',
+    border: '1px solid #10b981',
+    padding: '4px 8px',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    borderRadius: '3px',
+  },
+  swipeDivider: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '30px',
+    transform: 'translateX(-50%)',
+    zIndex: 15,
+    cursor: 'ew-resize',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  dividerLine: {
+    width: '2px',
+    height: '100%',
+    backgroundColor: '#facc15',
+    boxShadow: '0 0 8px rgba(250, 204, 21, 0.8)',
+  },
+  dividerHandle: {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '26px',
+    height: '26px',
+    borderRadius: '50%',
+    backgroundColor: '#facc15',
+    color: '#06090e',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.8rem',
+    fontWeight: 900,
+    boxShadow: '0 0 10px rgba(0,0,0,0.6)',
+  },
+  opacityContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  opacityImg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  opacityHud: {
+    position: 'absolute',
+    bottom: '16px',
+    left: '16px',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    border: '1px solid #334155',
+    display: 'flex',
+    gap: '16px',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#f8fafc',
+  },
+  spyglassContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    overflow: 'hidden',
+  },
+  spyglassBaseImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  spyglassLens: {
+    position: 'absolute',
+    borderRadius: '50%',
+    overflow: 'hidden',
+    border: '3px solid #38bdf8',
+    boxShadow: '0 0 20px rgba(56, 189, 248, 0.6), inset 0 0 15px rgba(0,0,0,0.5)',
+    zIndex: 12,
+  },
+  lensCrosshair: {
     position: 'absolute',
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    zIndex: 5,
     pointerEvents: 'none',
-    opacity: 0.5,
+    opacity: 0.7,
   },
-  fallbackContainer: {
+  lensBadge: {
     position: 'absolute',
-    inset: 0,
-    backgroundColor: '#06090e',
-    padding: '20px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    overflowY: 'auto',
+    bottom: '8px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: 'rgba(6, 9, 14, 0.85)',
+    color: '#10b981',
+    border: '1px solid #10b981',
+    fontSize: '0.6rem',
+    fontWeight: 800,
+    padding: '1px 6px',
+    borderRadius: '2px',
   },
-  fallbackHeader: {
+  sideBySideContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    display: 'flex',
+  },
+  sideCol: {
+    flex: 1,
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  sideDivider: {
+    width: '2px',
+    backgroundColor: '#1e293b',
+  },
+  sideHeader: {
+    position: 'absolute',
+    top: '8px',
+    left: '8px',
+    zIndex: 12,
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    borderBottom: '1px solid #182635',
-    paddingBottom: '12px',
-  },
-  fallbackTitle: {
-    margin: 0,
-    fontSize: '1.05rem',
-    color: '#f8fafc',
-    letterSpacing: '0.04em',
-  },
-  fallbackSubtitle: {
-    fontSize: '0.78rem',
-    color: '#94a3b8',
-  },
-  gridContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '12px',
-  },
-  gridCard: {
-    padding: '12px',
-    borderRadius: '6px',
-    border: '1px solid #182635',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-  },
-  gridCardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginBottom: '6px',
-  },
-  rankBadge: {
-    fontSize: '0.75rem',
-    fontWeight: 700,
-    color: '#38bdf8',
-  },
-  confBadge: {
-    fontSize: '0.75rem',
-    fontWeight: 700,
-    color: '#10b981',
-  },
-  gridCardTitle: {
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    color: '#f1f5f9',
-    marginBottom: '2px',
-  },
-  gridCardSub: {
+    gap: '6px',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    padding: '4px 8px',
+    borderRadius: '3px',
+    border: '1px solid #334155',
     fontSize: '0.7rem',
-    fontFamily: 'monospace',
-    color: '#94a3b8',
-    marginBottom: '6px',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    fontWeight: 700,
+    color: '#f8fafc',
   },
-  gridCoords: {
-    fontSize: '0.72rem',
-    color: '#64748b',
+  sideImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  flickerContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  flickerIndicator: {
+    position: 'absolute',
+    top: '16px',
+    left: '16px',
+    zIndex: 15,
+  },
+  flickerBadge: {
+    padding: '6px 12px',
+    fontSize: '0.8rem',
+    fontWeight: 800,
+    borderRadius: '4px',
+    letterSpacing: '0.05em',
+  },
+  differenceContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  diffBaseImg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  diffBlendImg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    mixBlendMode: 'difference',
+    filter: 'contrast(200%) brightness(140%)',
+  },
+  diffHud: {
+    position: 'absolute',
+    bottom: '16px',
+    left: '16px',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    border: '1px solid #38bdf8',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  diffHudTitle: {
+    color: '#38bdf8',
+    fontSize: '0.75rem',
+    fontWeight: 800,
+  },
+  diffHudSub: {
+    color: '#94a3b8',
+    fontSize: '0.7rem',
+  },
+  changeMaskContainer: {
+    position: 'absolute',
+    top: '90px',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  maskOverlayImg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    opacity: 0.85,
+    mixBlendMode: 'screen',
+  },
+  maskHud: {
+    position: 'absolute',
+    bottom: '16px',
+    left: '16px',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    border: '1px solid #ef4444',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  maskHudBadge: {
+    color: '#f87171',
+    fontSize: '0.75rem',
+    fontWeight: 800,
+  },
+  maskHudSub: {
+    color: '#94a3b8',
+    fontSize: '0.7rem',
   },
 };

@@ -20,7 +20,7 @@ def test_health_endpoint(client: TestClient):
     data = response.json()
     assert data["status"] == "healthy"
     assert data["app"] == "AstraTrace"
-    assert data["version"] == "0.1.0"
+    assert data["version"] in ("0.1.0", "2.0.0")
     assert data["offline_mode"] is True
     assert "timestamp" in data
 

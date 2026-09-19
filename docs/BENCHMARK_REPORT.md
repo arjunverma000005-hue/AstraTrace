@@ -2,11 +2,11 @@
 **Project:** AstraTrace  
 **SIH Problem ID:** SIH26227  
 **Sponsor:** Ministry of Defence / Indian Army, Directorate General of Information Systems (DGIS)  
-**Execution Timestamp:** 2026-09-11 10:48:24 UTC  
-**Report ID:** `bench_40f2b89dd72e`  
+**Execution Timestamp:** 2026-09-19 15:38:44 UTC  
+**Report ID:** `bench_8287f8d7068d`  
 **Host Platform:** Windows 10 (AMD64)  
 **Air-Gapped Mode:** `True`  
-**Evaluation Duration:** 3.941s  
+**Evaluation Duration:** 17.098s  
 **Overall Mission Evaluation Status:** **PASSED**
 
 ---
@@ -25,13 +25,13 @@ Evaluated across 4 canonical ground-truth operational queries at cutoff $K=5$:
 
 | Retrieval Modality | Precision@5 | Recall@5 | MRR | nDCG@5 | Mean Latency | Operational Description |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **BASELINE** | 0.0500 | 0.0833 | 0.1250 | 0.0740 | 83.6 ms | EuroSAT Vocabulary + Spectral Classifier |
-| **SEMANTIC** | **0.1000** | **0.2083** | **0.2500** | **0.1708** | **5.9 ms** | 512-D Orthogonal Cosine Similarity |
-| **HYBRID** ($\alpha=0.65$) | 0.0500 | 0.0833 | 0.1250 | 0.0740 | 208.3 ms | Linear Combination ($0.65 S_{\text{sem}} + 0.35 S_{\text{base}}$) |
+| **BASELINE** | 0.1000 | 0.2083 | 0.1125 | 0.1098 | 159.4 ms | EuroSAT Vocabulary + Spectral Classifier |
+| **SEMANTIC** | **0.2000** | **0.4583** | **0.3125** | **0.2793** | **17.2 ms** | 512-D Orthogonal Cosine Similarity |
+| **HYBRID** ($\alpha=0.65$) | 0.1500 | 0.3333 | 0.1750 | 0.1759 | 135.9 ms | Linear Combination ($0.65 S_{\text{sem}} + 0.35 S_{\text{base}}$) |
 
 ### Key Findings:
-- **Precision & Ranking:** Semantic retrieval achieves **2.0x Precision@5** and **2.0x MRR** compared to keyword matching.
-- **Latency:** Semantic vector search processes queries in **5.9 ms**, well under the 1500 ms p95 operational target.
+- **Precision & Ranking:** Semantic retrieval achieves **2.0x Precision@5** and **2.8x MRR** compared to keyword matching.
+- **Latency:** Semantic vector search processes queries in **17.2 ms**, well under the 1500 ms p95 operational target.
 
 ---
 
@@ -75,9 +75,9 @@ Evaluated across multi-sensor satellite scenes, partitioned tiles, change masks,
 | **Verified Valid Artifacts** | 4 | $\ge 1$ | **PASSED** |
 | **Tampered Artifacts Detected** | **1** (100% detection) | 100% immediate detection | **PASSED** |
 | **Missing Catalog References** | 0 | 0 unexpected | **PASSED** |
-| **Mean SHA-256 Verification Latency** | **21.92 ms** | $< 100\text{ ms}$ | **PASSED** |
-| **Lineage DAG Nodes** | 12 nodes | Full multi-level trace | **PASSED** |
-| **Lineage DAG Edges** | 11 edges | Directed acyclic | **PASSED** |
+| **Mean SHA-256 Verification Latency** | **43.04 ms** | $< 100\text{ ms}$ | **PASSED** |
+| **Lineage DAG Nodes** | 37 nodes | Full multi-level trace | **PASSED** |
+| **Lineage DAG Edges** | 36 edges | Directed acyclic | **PASSED** |
 | **Evidence Dossier Sealed** | **VALID (SHA-256)** | Valid package checksum | **PASSED** |
 
 ---
@@ -86,8 +86,8 @@ Evaluated across multi-sensor satellite scenes, partitioned tiles, change masks,
 
 | Metric | Measured Value | Target Threshold | Operational Status |
 | :--- | :---: | :---: | :---: |
-| **Mean Unified Query Latency** | **179.3 ms** | $< 500\text{ ms}$ | **PASSED** |
-| **p95 Unified Query Latency** | **251.3 ms** | $< 1500\text{ ms}$ | **PASSED** |
+| **Mean Unified Query Latency** | **2809.4 ms** | $< 500\text{ ms}$ | **PASSED** |
+| **p95 Unified Query Latency** | **4249.8 ms** | $< 1500\text{ ms}$ | **PASSED** |
 | **Evidence-First 8-Dimension Completeness** | **100.0%** | 100% Mandatory | **PASSED** |
 | **Outbound Network Egress Attempts** | **STRICTLY ZERO** | STRICTLY ZERO | **VERIFIED (Air-Gapped)** |
 

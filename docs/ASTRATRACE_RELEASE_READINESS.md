@@ -197,7 +197,7 @@ If a service terminates unexpectedly during demonstration:
 Stop-Process -Name python -ErrorAction SilentlyContinue
 
 # 2. Restart backend from project root
-cd C:\Users\Dell\.gemini\antigravity\scratch\astratrace
+# (from repository root)
 & apps\backend\.venv\Scripts\python.exe -m uvicorn apps.backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 Verify via `Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/health"`.
@@ -205,7 +205,7 @@ Verify via `Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/health"`.
 ### Scenario B: Frontend Server Stops
 ```powershell
 # 1. Restart Vite dev server
-cd C:\Users\Dell\.gemini\antigravity\scratch\astratrace\apps\frontend
+cd apps/frontend
 npm run dev
 ```
 Navigate to `http://localhost:5173/`.

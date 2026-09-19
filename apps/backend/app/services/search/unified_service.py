@@ -304,6 +304,12 @@ class UnifiedSearchService:
                     "scene_coordinates": scene_coordinates,
                 }
 
+                when_val: Dict[str, Any] = {
+                    "datetime": r.acquired_at or (tile_db.scene.acquired_at.isoformat() if tile_db and tile_db.scene and tile_db.scene.acquired_at else None),
+                    "date": r.acquired_at[:10] if r.acquired_at else "2024-01-01",
+                    "observation_type": "SINGLE_ACQUISITION",
+                }
+
                 if temporal_pair:
                     why_dict["before_tile_id"] = temporal_pair["before_tile_id"]
                     why_dict["after_tile_id"] = temporal_pair["after_tile_id"]

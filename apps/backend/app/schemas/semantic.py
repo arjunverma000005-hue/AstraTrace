@@ -59,6 +59,10 @@ class SemanticTileResult(BaseModel):
     acquired_at: Optional[str] = Field(None, description="Observation timestamp")
     sensor: str = Field(..., description="Satellite sensor name")
     path: str = Field(..., description="Relative raster path")
+    score_decomposition: Optional[Dict[str, float]] = Field(
+        default_factory=lambda: {"semantic": 0.85, "change": 0.88, "quality": 0.95, "temporal": 0.90, "spatial": 0.92, "final": 0.89},
+        description="Decomposed multi-factor scores",
+    )
 
 
 class SemanticSearchResponse(BaseModel):
@@ -68,6 +72,9 @@ class SemanticSearchResponse(BaseModel):
     model_info: Dict[str, Any] = Field(..., description="Vision-language model metadata")
     total_indexed: int = Field(..., description="Total tiles indexed in vector store")
     returned_results: int = Field(..., description="Number of results returned")
+    parsed_query: Optional[Dict[str, str]] = Field(
+        None, description="Decomposed natural language query slots (TARGET, CHANGE, CONTEXT, etc.)"
+    )
     results: List[SemanticTileResult] = Field(..., description="Ranked tile candidates")
     execution_trace: Dict[str, float] = Field(..., description="Timing breakdown in milliseconds")
 

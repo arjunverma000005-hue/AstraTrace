@@ -12,6 +12,7 @@ RUN npm run build
 # Runner Stage: Nginx Alpine
 FROM nginx:alpine
 
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /build/dist /usr/share/nginx/html
 
 # Expose standard frontend port

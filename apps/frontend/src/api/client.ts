@@ -16,6 +16,10 @@ import {
   SimilarTilesResponse,
   EvidencePackageExportResponse,
   ProvenanceGraphResponse,
+  ClusterListResponse,
+  ClusterDetailResponse,
+  ExportReportRequest,
+  ExportReportResponse,
 } from '../types/api';
 
 const API_BASE_URL = '/api/v1';
@@ -236,5 +240,116 @@ export class ApiClient {
   static getChangeMaskUrl(changeId: string): string {
     return `${API_BASE_URL}/change/mask/${encodeURIComponent(changeId)}`;
   }
+
+  /**
+   * Searches for tiles matching an uploaded reference image.
+   */
+  static async searchByImage(file: Blob | File, topK: number = 5): Promise<SimilarTilesResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${API_BASE_URL}/search/image?top_k=${topK}`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Image search error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to execute image similarity search');
+    }
+  }
+
+  /**
+   * Fetches unsupervised clusters across catalog tile embeddings.
+   */
+  static async getClusters(algorithm?: string): Promise<ClusterListResponse> {
+    try {
+      const url = algorithm ? `${API_BASE_URL}/clusters?algorithm=${algorithm}` : `${API_BASE_URL}/clusters`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Clusters error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to fetch tile clusters');
+    }
+  }
+
+  /**
+   * Fetches details and member tiles for a specific cluster.
+   */
+  static async getClusterDetail(clusterId: string): Promise<ClusterDetailResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clusters/${encodeURIComponent(clusterId)}`);
+      if (!response.ok) {
+        throw new Error(`Cluster detail error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to fetch cluster details');
+    }
+  }
+
+  /**
+   * Generates and downloads a multi-format evidence dossier report.
+   */
+  static async exportReport(req: ExportReportRequest): Promise<ExportReportResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/export/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Export error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to export report');
+    }
+  }
+
+  /**
+   * Retrieves latest quantitative benchmark evaluation summary report.
+   */
+  static async getEvaluationSummary(): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/evaluation/summary`);
+      if (!response.ok) {
+        throw new Error(`Evaluation summary error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to fetch evaluation summary');
+    }
+  }
+
+  /**
+   * Triggers a fresh automated quantitative benchmark run.
+   */
+  static async triggerEvaluationRun(topK: number = 5): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/evaluation/run?top_k=${topK}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Benchmark run error: HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to trigger benchmark run');
+    }
+  }
 }
+
 

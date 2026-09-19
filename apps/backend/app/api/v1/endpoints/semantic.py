@@ -49,6 +49,13 @@ def search_semantic(
         "the most semantically and visually similar satellite tiles across the catalog ('Find Similar Sites')."
     ),
 )
+@router.post(
+    "/search/image",
+    response_model=SemanticSearchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Image-to-Image Similarity Search",
+    description="Finds similar satellite locations from a selected tile ID, crop, or reference image.",
+)
 def search_similar_tiles(
     request: SimilarTilesRequest,
     db: Session = Depends(get_db),
@@ -56,6 +63,24 @@ def search_similar_tiles(
     """Finds visually and semantically similar satellite tiles given a reference image."""
     service = SemanticRetrievalService(db=db)
     return service.search_similar_tiles(request)
+
+
+@router.get(
+    "/similar/{tile_id}",
+    response_model=SemanticSearchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Find Similar Sites by Tile ID",
+    description="Convenience endpoint returning top similar sites for an analyst-selected tile.",
+)
+def get_similar_by_tile_id(
+    tile_id: str,
+    top_k: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> SemanticSearchResponse:
+    """Finds similar sites by tile ID."""
+    service = SemanticRetrievalService(db=db)
+    req = SimilarTilesRequest(reference_tile_id=tile_id, top_k=top_k)
+    return service.search_similar_tiles(req)
 
 
 @router.post(
