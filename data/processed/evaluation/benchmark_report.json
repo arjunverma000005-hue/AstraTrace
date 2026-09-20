@@ -1,32 +1,32 @@
 {
-  "report_id": "bench_8287f8d7068d",
-  "timestamp": "2026-09-19T15:38:44.787830Z",
-  "duration_seconds": 17.098,
+  "report_id": "bench_74264ff64535",
+  "timestamp": "2026-09-20T10:54:53.721679Z",
+  "duration_seconds": 14.832,
   "platform": "Windows 10 (AMD64)",
   "offline_mode": true,
   "retrieval": {
     "queries_evaluated": 4,
-    "top_k": 5,
+    "top_k": 4,
     "baseline": {
-      "mean_precision_at_k": 0.1,
-      "mean_recall_at_k": 0.2083,
-      "mean_mrr": 0.1125,
-      "mean_ndcg_at_k": 0.1098,
-      "mean_latency_ms": 159.41
+      "mean_precision_at_k": 0.0625,
+      "mean_recall_at_k": 0.0833,
+      "mean_mrr": 0.0625,
+      "mean_ndcg_at_k": 0.0505,
+      "mean_latency_ms": 40.7125
     },
     "semantic": {
-      "mean_precision_at_k": 0.2,
+      "mean_precision_at_k": 0.25,
       "mean_recall_at_k": 0.4583,
       "mean_mrr": 0.3125,
       "mean_ndcg_at_k": 0.2793,
-      "mean_latency_ms": 17.205
+      "mean_latency_ms": 9.5
     },
     "hybrid": {
-      "mean_precision_at_k": 0.15,
-      "mean_recall_at_k": 0.3333,
-      "mean_mrr": 0.175,
-      "mean_ndcg_at_k": 0.1759,
-      "mean_latency_ms": 135.88
+      "mean_precision_at_k": 0.125,
+      "mean_recall_at_k": 0.2083,
+      "mean_mrr": 0.125,
+      "mean_ndcg_at_k": 0.1166,
+      "mean_latency_ms": 129.14
     }
   },
   "change_detection": {
@@ -90,14 +90,14 @@
     "verified_artifacts": 4,
     "tampered_artifacts_detected": 1,
     "missing_artifacts": 0,
-    "mean_verification_latency_ms": 43.037,
-    "dag_node_count": 37,
-    "dag_edge_count": 36,
+    "mean_verification_latency_ms": 18.987,
+    "dag_node_count": 40,
+    "dag_edge_count": 39,
     "dossier_export_valid": true
   },
   "system": {
-    "mean_query_latency_ms": 2809.37,
-    "p95_query_latency_ms": 4249.8,
+    "mean_query_latency_ms": 2500.56,
+    "p95_query_latency_ms": 3408.6,
     "evidence_first_completeness_pct": 100.0,
     "airgap_isolation_verified": true
   },

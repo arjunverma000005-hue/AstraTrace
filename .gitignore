@@ -119,3 +119,11 @@ Desktop.ini
 !data/samples/**/*.json
 .vercel
 .env*
+scratch/
+data/processed/changes/
+data/processed/exports/
+apps/backend/data/processed/changes/
+apps/backend/data/processed/exports/
+
+.vercel
+.env*

@@ -9,6 +9,25 @@ interface ReviewQueueProps {
   isLoading: boolean;
 }
 
+const formatQueueDate = (when?: string | { datetime?: string | null; date?: string; [key: string]: any } | null): string => {
+  if (!when) return '2023-02-03';
+  const raw = typeof when === 'object' ? (when.datetime || when.date || '') : when;
+  if (!raw || typeof raw !== 'string') return '2023-02-03';
+
+  if (raw.includes(' to ')) {
+    return raw
+      .split(' to ')
+      .map((d) => {
+        const parsed = new Date(d.trim());
+        return isNaN(parsed.getTime()) ? d.trim().slice(0, 10) : parsed.toISOString().slice(0, 10);
+      })
+      .join(' → ');
+  }
+
+  const parsed = new Date(raw);
+  return isNaN(parsed.getTime()) ? raw.slice(0, 10) : parsed.toISOString().slice(0, 10);
+};
+
 export const ReviewQueue: React.FC<ReviewQueueProps> = ({
   candidates,
   selectedCandidate,
@@ -140,6 +159,13 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                     <span style={styles.rankNum}>#{c.rank ? String(c.rank).padStart(2, '0') : '01'}</span>
                     <span style={styles.targetTypeBadge}>{c.target_type}</span>
                     <span style={styles.sensorBadge}>SENTINEL-2</span>
+                    {Boolean(c.which?.scene_id && (c.which.scene_id.includes('20230115') || c.which.scene_id.includes('7acad713'))) ||
+                    c.provenance?.collection === 'verification_collection' ||
+                    c.provenance?.collection === 'demo_archive' ? (
+                      <span style={styles.syntheticBadge} title="Synthetic benchmark challenge fixture">SYNTHETIC</span>
+                    ) : (
+                      <span style={styles.realDataBadge} title="Real Copernicus Sentinel-2 L2A BOA">REAL</span>
+                    )}
                   </div>
                   <div style={styles.badgeRow}>
                     <span style={{ ...styles.badge, backgroundColor: qualInfo.bg, borderColor: qualInfo.border, color: qualInfo.color }}>
@@ -183,13 +209,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
 
                   <div style={styles.dateLabel}>
                     <CalendarIcon size={11} color="#64748b" style={{ marginRight: '4px' }} />
-                    <span>
-                      {c.when ? (
-                        c.when.includes(' to ')
-                          ? c.when.split(' to ').map(d => new Date(d.trim()).toISOString().slice(0, 10)).join(' → ')
-                          : new Date(c.when).toISOString().slice(0, 10)
-                      ) : '2023-02-03'}
-                    </span>
+                    <span>{formatQueueDate(c.when)}</span>
                   </div>
                 </div>
               </div>
@@ -324,6 +344,28 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'rgba(99, 102, 241, 0.15)',
     color: '#818cf8',
     border: '1px solid rgba(99, 102, 241, 0.3)',
+  },
+  syntheticBadge: {
+    fontSize: '0.54rem',
+    fontWeight: 800,
+    fontFamily: 'var(--font-mono, monospace)',
+    padding: '1px 4px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    color: '#f59e0b',
+    border: '1px solid rgba(245, 158, 11, 0.35)',
+    letterSpacing: '0.03em',
+  },
+  realDataBadge: {
+    fontSize: '0.54rem',
+    fontWeight: 800,
+    fontFamily: 'var(--font-mono, monospace)',
+    padding: '1px 4px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    color: '#10b981',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    letterSpacing: '0.03em',
   },
   badgeRow: {
     display: 'flex',

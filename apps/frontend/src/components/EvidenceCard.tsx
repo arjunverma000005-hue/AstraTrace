@@ -44,11 +44,10 @@ interface EvidenceCardProps {
 
 const formatTimestamp = (when?: string | null | Record<string, any>): string => {
   if (!when) return 'Not Available';
-  if (typeof when === 'object') {
-    return when.datetime || when.date || JSON.stringify(when);
-  }
-  if (when.includes(' to ')) {
-    return when
+  const raw = typeof when === 'object' ? (when.datetime || when.date || JSON.stringify(when)) : when;
+  if (typeof raw !== 'string') return 'Not Available';
+  if (raw.includes(' to ')) {
+    return raw
       .split(' to ')
       .map((d) => {
         const parsed = new Date(d.trim());
@@ -56,8 +55,8 @@ const formatTimestamp = (when?: string | null | Record<string, any>): string => 
       })
       .join(' → ');
   }
-  const parsed = new Date(when);
-  return isNaN(parsed.getTime()) ? when : parsed.toLocaleDateString('en-GB');
+  const parsed = new Date(raw);
+  return isNaN(parsed.getTime()) ? raw : parsed.toLocaleDateString('en-GB');
 };
 
 export const EvidenceCard: React.FC<EvidenceCardProps> = ({
@@ -89,11 +88,12 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   const [isLoadingGraph, setIsLoadingGraph] = useState<boolean>(false);
   const [graphError, setGraphError] = useState<string | null>(null);
 
-  // Image load error flags
+  // Image load error & loading flags
   const [maskError, setMaskError] = useState<boolean>(false);
   const [beforeError, setBeforeError] = useState<boolean>(false);
   const [afterError, setAfterError] = useState<boolean>(false);
   const [previewError, setPreviewError] = useState<boolean>(false);
+  const [previewLoaded, setPreviewLoaded] = useState<boolean>(false);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
   useEffect(() => {
@@ -107,6 +107,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
     setBeforeError(false);
     setAfterError(false);
     setPreviewError(false);
+    setPreviewLoaded(false);
     setCopiedHash(null);
   }, [candidate?.target_id]);
 
@@ -133,8 +134,9 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
     if (activeTab === 'CLUSTERS' && !clustersList && !isLoadingClusters) {
       setIsLoadingClusters(true);
       ApiClient.getClusters()
-        .then((res) => {
-          setClustersList(res.clusters);
+        .then((res: any) => {
+          const list = Array.isArray(res) ? res : (res?.clusters || []);
+          setClustersList(list);
           setClustersError(null);
         })
         .catch((err: unknown) => {
@@ -281,6 +283,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
     { id: 'METADATA', label: 'METADATA', icon: SatelliteIcon },
   ];
 
+  const isSynthetic =
+    Boolean(candidate.which?.scene_id && (candidate.which.scene_id.includes('20230115') || candidate.which.scene_id.includes('7acad713'))) ||
+    candidate.provenance?.collection === 'verification_collection' ||
+    candidate.provenance?.collection === 'demo_archive';
+
   return (
     <div style={styles.container}>
       {/* Telemetry Header */}
@@ -291,6 +298,15 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               <span style={styles.targetTypeBadge}>{candidate.target_type}</span>
               <span style={styles.sensorBadge}>{candidate.which.sensor || 'SENTINEL-2 L2A'}</span>
               <span style={styles.crsBadge}>{candidate.where.crs || 'EPSG:32643'}</span>
+              {isSynthetic ? (
+                <span style={styles.syntheticBadge} title="Generated benchmark challenge fixture for validation">
+                  SYNTHETIC / BENCHMARK FIXTURE
+                </span>
+              ) : (
+                <span style={styles.realDataBadge} title="Real Copernicus Sentinel-2 Level-2A BOA Observation">
+                  REAL PUBLIC DATA
+                </span>
+              )}
             </div>
             <h3 style={styles.title}>{candidate.what}</h3>
             <div style={styles.targetIdRow}>
@@ -354,12 +370,27 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                     <span style={styles.fallbackText}>Optical preview thumbnail</span>
                   </div>
                 ) : (
-                  <img
-                    src={previewUrl}
-                    alt={`Preview of ${candidate.target_id}`}
-                    style={styles.previewImg}
-                    onError={() => setPreviewError(true)}
-                  />
+                  <>
+                    {!previewLoaded && (
+                      <div style={styles.skeletonBox}>
+                        <div style={styles.skeletonPulse} />
+                        <span style={styles.skeletonText}>ACQUIRING SATELLITE RASTER...</span>
+                      </div>
+                    )}
+                    <img
+                      src={previewUrl}
+                      alt={`Preview of ${candidate.target_id}`}
+                      style={{
+                        ...styles.previewImg,
+                        display: previewLoaded ? 'block' : 'none',
+                      }}
+                      onLoad={() => setPreviewLoaded(true)}
+                      onError={() => {
+                        setPreviewError(true);
+                        setPreviewLoaded(true);
+                      }}
+                    />
+                  </>
                 )}
               </div>
             </div>
@@ -701,25 +732,36 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
               {!isLoadingClusters && clustersList && clustersList.length > 0 && (
                 <div style={styles.similarList}>
-                  {clustersList.map((c) => (
-                    <div key={c.cluster_id} style={styles.similarCard}>
-                      <div style={styles.similarCardHeader}>
-                        <span style={styles.similarRank}>{c.label}</span>
-                        <span style={styles.similarSimBadge}>{c.size} SATELLITE TILES</span>
-                      </div>
-                      <div style={styles.similarDetails}>
-                        <div style={styles.clusterTagsRow}>
-                          {c.tags.map((t, idx) => (
-                            <span key={idx} style={styles.flagBadge}>{t}</span>
-                          ))}
+                  {clustersList.map((c) => {
+                    const label = c.cluster_label || c.label || `Cluster ${c.cluster_id}`;
+                    const sampleCount = c.n_samples ?? c.size ?? 0;
+                    const tags = c.dominant_semantics || c.tags || [];
+                    const lat = c.centroid_lat ?? (c.geographic_bounds ? (c.geographic_bounds.min_lat + c.geographic_bounds.max_lat) / 2 : 18.52);
+                    const lon = c.centroid_lon ?? (c.geographic_bounds ? (c.geographic_bounds.min_lon + c.geographic_bounds.max_lon) / 2 : 73.85);
+                    const sim = c.similarity_score ?? c.avg_similarity ?? 0.85;
+
+                    return (
+                      <div key={c.cluster_id} style={styles.similarCard}>
+                        <div style={styles.similarCardHeader}>
+                          <span style={styles.similarRank}>{label}</span>
+                          <span style={styles.similarSimBadge}>{sampleCount} SATELLITE TILES</span>
                         </div>
-                        <div style={styles.similarMeta}>
-                          <span>Centroid: {c.centroid_lat.toFixed(4)}°N, {c.centroid_lon.toFixed(4)}°E</span>
-                          <span>Similarity: {(c.avg_similarity * 100).toFixed(1)}%</span>
+                        <div style={styles.similarDetails}>
+                          {tags.length > 0 && (
+                            <div style={styles.clusterTagsRow}>
+                              {tags.map((t, idx) => (
+                                <span key={idx} style={styles.flagBadge}>{t}</span>
+                              ))}
+                            </div>
+                          )}
+                          <div style={styles.similarMeta}>
+                            <span>Centroid: {lat.toFixed(4)}°N, {lon.toFixed(4)}°E</span>
+                            <span>Similarity: {(sim * 100).toFixed(1)}%</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -1048,6 +1090,28 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid rgba(16, 185, 129, 0.25)',
     fontFamily: 'monospace',
   },
+  syntheticBadge: {
+    fontSize: '0.60rem',
+    fontWeight: 800,
+    padding: '2px 6px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    color: '#f59e0b',
+    border: '1px solid rgba(245, 158, 11, 0.35)',
+    letterSpacing: '0.04em',
+    fontFamily: 'monospace',
+  },
+  realDataBadge: {
+    fontSize: '0.60rem',
+    fontWeight: 800,
+    padding: '2px 6px',
+    borderRadius: '3px',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    color: '#10b981',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    letterSpacing: '0.04em',
+    fontFamily: 'monospace',
+  },
   title: {
     margin: '4px 0 2px 0',
     fontSize: '1.02rem',
@@ -1187,6 +1251,35 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     border: '1px solid #1e293b',
+    position: 'relative',
+  },
+  skeletonBox: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#090e17',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  skeletonPulse: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    background: 'linear-gradient(90deg, rgba(24, 38, 53, 0) 0%, rgba(56, 189, 248, 0.08) 50%, rgba(24, 38, 53, 0) 100%)',
+    animation: 'pulseGlow 1.8s infinite ease-in-out',
+  },
+  skeletonText: {
+    fontSize: '0.64rem',
+    fontWeight: 700,
+    color: '#64748b',
+    letterSpacing: '0.05em',
+    fontFamily: 'monospace',
+    zIndex: 1,
   },
   previewImg: {
     width: '100%',

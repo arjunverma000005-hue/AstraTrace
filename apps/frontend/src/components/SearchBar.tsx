@@ -79,6 +79,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
   const [showSlotBreakdown, setShowSlotBreakdown] = useState<boolean>(true);
   const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
   const [uploadedImageName, setUploadedImageName] = useState<string | null>(null);
+  const [searchWarning, setSearchWarning] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,6 +87,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (mode === 'CHANGE' && !query.trim()) {
+      setSearchWarning('Enter a change description, location, or date range.');
+      return;
+    }
+    setSearchWarning(null);
 
     const req: UnifiedSearchRequest = {
       query: query.trim() || undefined,
@@ -107,6 +114,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
 
   const handleApplyQuickQuery = (q: string) => {
     setQuery(q);
+    setSearchWarning(null);
     const req: UnifiedSearchRequest = {
       query: q,
       search_mode: mode,
@@ -158,14 +166,22 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (searchWarning) setSearchWarning(null);
+            }}
             placeholder="ENTER NATURAL LANGUAGE QUERY • e.g. 'Find newly built structures near roads between January 2023 and January 2025'..."
+            aria-label="Natural language search query"
             style={styles.searchInput}
           />
           {query && (
             <button
               type="button"
-              onClick={() => setQuery('')}
+              onClick={() => {
+                setQuery('');
+                setSearchWarning(null);
+              }}
+              aria-label="Clear search query"
               style={styles.clearBtn}
               title="Clear search query"
             >
@@ -179,12 +195,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
             ref={fileInputRef}
             onChange={handleImageUpload}
             accept="image/*"
+            aria-label="Upload reference raster file"
             style={{ display: 'none' }}
           />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploadingImage}
+            aria-label="Upload reference raster to search visually similar sites"
             style={styles.imageUploadBtn}
             title="Upload reference raster/crop to search visually similar sites"
           >
@@ -195,6 +213,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
           <button
             type="submit"
             disabled={isLoading}
+            aria-label="Execute search query"
             style={{
               ...styles.searchBtn,
               opacity: isLoading ? 0.75 : 1.0,
@@ -213,6 +232,22 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
             )}
           </button>
         </div>
+
+        {/* Tactical Search Warning / Guidance Banner */}
+        {searchWarning && (
+          <div style={styles.warningAlert} role="alert">
+            <span style={styles.warningIcon}>⚠️</span>
+            <span style={styles.warningText}>{searchWarning}</span>
+            <button
+              type="button"
+              onClick={() => setSearchWarning(null)}
+              aria-label="Dismiss warning"
+              style={styles.warningDismissBtn}
+            >
+              DISMISS
+            </button>
+          </div>
+        )}
 
         {/* Natural Language Slot Breakdown Card */}
         {parsedSlots && showSlotBreakdown && (
@@ -279,12 +314,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
               <SlidersIcon size={13} color="#94a3b8" style={{ marginRight: '4px' }} />
               MODE:
             </span>
-            <div style={styles.pillGroup}>
+            <div style={styles.pillGroup} role="group" aria-label="Search mode selector">
               {(['AUTO', 'SEMANTIC', 'KEYWORD', 'HYBRID', 'CHANGE'] as SearchMode[]).map((m) => (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMode(m)}
+                  onClick={() => {
+                    setMode(m);
+                    if (searchWarning) setSearchWarning(null);
+                  }}
+                  aria-label={`Search mode ${m}`}
+                  aria-pressed={mode === m}
                   style={{
                     ...styles.pillBtn,
                     ...(mode === m ? styles.pillBtnActive : {}),
@@ -302,6 +342,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
             <select
               value={qualityFilter}
               onChange={(e) => setQualityFilter(e.target.value)}
+              aria-label="Quality gate filter"
               style={styles.select}
             >
               <option value="ALL">ALL OBSERVATIONS</option>
@@ -322,6 +363,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onImageSearchRes
               step={0.05}
               value={minConfidence}
               onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
+              aria-label="Minimum confidence threshold"
               style={styles.slider}
             />
           </div>
@@ -558,6 +600,37 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#94a3b8',
     fontSize: '0.68rem',
     padding: '2px 8px',
+    borderRadius: '3px',
+    cursor: 'pointer',
+  },
+  warningAlert: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    border: '1px solid rgba(245, 158, 11, 0.4)',
+    borderRadius: '4px',
+    padding: '6px 12px',
+    marginTop: '6px',
+  },
+  warningIcon: {
+    fontSize: '0.85rem',
+    lineHeight: 1,
+  },
+  warningText: {
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    color: '#f59e0b',
+    letterSpacing: '0.02em',
+    flex: 1,
+  },
+  warningDismissBtn: {
+    backgroundColor: 'transparent',
+    border: '1px solid rgba(245, 158, 11, 0.4)',
+    color: '#f59e0b',
+    fontSize: '0.60rem',
+    fontWeight: 800,
+    padding: '2px 6px',
     borderRadius: '3px',
     cursor: 'pointer',
   },

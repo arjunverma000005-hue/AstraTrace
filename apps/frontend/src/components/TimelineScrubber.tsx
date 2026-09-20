@@ -77,6 +77,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
         <select
           value={playbackSpeed}
           onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+          aria-label="Temporal playback speed"
           style={styles.speedSelect}
         >
           <option value={1500}>0.7x (1.5s)</option>

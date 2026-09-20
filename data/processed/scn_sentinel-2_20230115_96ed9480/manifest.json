@@ -1,7 +1,7 @@
 {
   "scene_id": "scn_sentinel-2_20230115_96ed9480",
   "sensor": "SENTINEL-2",
-  "collection": "manifest_test",
+  "collection": "test_collection",
   "acquired_at": "2023-01-15T10:30:00+00:00",
   "source_uri": "data/samples/scenes/scene_2023_01_15.tif",
   "crs": "EPSG:32643",
@@ -20,7 +20,7 @@
   "tile_size": 256,
   "overlap": 25,
   "tiles_count": 9,
-  "ingested_at": "2026-09-16T20:19:57.905973+00:00",
+  "ingested_at": "2026-09-20T10:54:21.632172+00:00",
   "tiles": [
     {
       "tile_index": 0,

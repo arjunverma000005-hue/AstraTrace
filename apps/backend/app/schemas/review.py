@@ -4,7 +4,7 @@ SIH 2026 | Problem ID: SIH26227
 Defines contracts for submitting, tracking, and retrieving human-in-the-loop decisions.
 """
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -61,7 +61,7 @@ class ReviewQueueItem(BaseModel):
     # Evidence-First Dimensions
     what: str = Field(..., description="Classification or detected change description")
     where: Dict[str, Any] = Field(..., description="WGS84 bbox, centroid, and GeoJSON geometry")
-    when: Optional[str] = Field(None, description="Acquisition datetime ISO 8601")
+    when: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Acquisition datetime ISO 8601 or temporal range")
     which: Dict[str, Any] = Field(..., description="Sensor, collection, and scene metadata")
     why: Dict[str, Any] = Field(..., description="Score decomposition explaining ranking rationale")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Calibrated final confidence score")

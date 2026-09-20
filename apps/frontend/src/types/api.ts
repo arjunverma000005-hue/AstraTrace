@@ -48,7 +48,7 @@ export interface EvidenceFirstCandidate {
     coordinates?: [[number, number], [number, number], [number, number], [number, number]];
     crs?: string;
   };
-  when: string | null;
+  when: string | { datetime?: string | null; date?: string; observation_type?: string; [key: string]: any } | null;
   which: {
     sensor: string;
     scene_id?: string;
@@ -241,22 +241,33 @@ export interface ScoreDecomposition {
 
 export interface ClusterRecord {
   cluster_id: string;
-  label: string;
-  size: number;
-  representative_tile_id: string;
-  representative_scene_id: string;
-  centroid_lon: number;
-  centroid_lat: number;
-  convex_hull: number[][];
-  avg_similarity: number;
-  tags: string[];
-  created_at: string;
+  label?: string;
+  cluster_label?: string;
+  size?: number;
+  n_samples?: number;
+  algorithm?: string;
+  representative_tile_id?: string;
+  representative_scene_id?: string;
+  centroid_lon?: number;
+  centroid_lat?: number;
+  geographic_bounds?: {
+    min_lon: number;
+    min_lat: number;
+    max_lon: number;
+    max_lat: number;
+  };
+  convex_hull?: number[][];
+  avg_similarity?: number;
+  similarity_score?: number;
+  tags?: string[];
+  dominant_semantics?: string[];
+  created_at?: string;
 }
 
 export interface ClusterListResponse {
-  total_clusters: number;
-  algorithm: string;
-  clusters: ClusterRecord[];
+  total_clusters?: number;
+  algorithm?: string;
+  clusters?: ClusterRecord[];
 }
 
 export interface ClusterDetailResponse {

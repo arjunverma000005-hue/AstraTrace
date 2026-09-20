@@ -43,6 +43,9 @@ class ClusteringService:
             self.db = SessionLocal()
             self._owns_db = True
 
+        from apps.backend.app.db.session import Base
+        Base.metadata.create_all(bind=self.db.get_bind())
+
     def close(self):
         if self._owns_db and self.db:
             self.db.close()

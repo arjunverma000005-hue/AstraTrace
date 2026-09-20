@@ -59,9 +59,10 @@ def get_engine(database_url: str = None, is_readonly: bool = False):
             if is_ro and found_path:
                 tmp_db = Path("/tmp") / found_path.name
                 try:
-                    if not tmp_db.exists() or tmp_db.stat().st_size != found_path.stat().st_size:
+                    if not tmp_db.exists():
                         shutil.copy2(found_path, tmp_db)
                     found_path = tmp_db
+                    is_ro = False
                 except Exception:
                     pass
             elif not is_ro and not found_path and db_path != ":memory:":

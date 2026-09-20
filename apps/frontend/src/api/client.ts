@@ -17,6 +17,7 @@ import {
   EvidencePackageExportResponse,
   ProvenanceGraphResponse,
   ClusterListResponse,
+  ClusterRecord,
   ClusterDetailResponse,
   ExportReportRequest,
   ExportReportResponse,
@@ -266,7 +267,7 @@ export class ApiClient {
   /**
    * Fetches unsupervised clusters across catalog tile embeddings.
    */
-  static async getClusters(algorithm?: string): Promise<ClusterListResponse> {
+  static async getClusters(algorithm?: string): Promise<ClusterListResponse | ClusterRecord[]> {
     try {
       const url = algorithm ? `${API_BASE_URL}/clusters?algorithm=${algorithm}` : `${API_BASE_URL}/clusters`;
       const response = await fetch(url);

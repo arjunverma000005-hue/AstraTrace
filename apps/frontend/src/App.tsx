@@ -6,7 +6,7 @@ import { MapViewer } from './components/MapViewer';
 import { ReviewQueue } from './components/ReviewQueue';
 import { SearchBar } from './components/SearchBar';
 import { TimelineScrubber } from './components/TimelineScrubber';
-import { SatelliteIcon, ShieldIcon, OrbitIcon, CheckCircleIcon, CloseIcon } from './components/Icons';
+import { SatelliteIcon, ShieldIcon, OrbitIcon, CheckCircleIcon, CloseIcon, LayersIcon } from './components/Icons';
 import {
   EvidenceFirstCandidate,
   ReviewDecision,
@@ -21,6 +21,23 @@ export const App: React.FC = () => {
   const [systemOnline, setSystemOnline] = useState<boolean>(true);
   const [utcTime, setUtcTime] = useState<string>('');
   const [activeEpoch, setActiveEpoch] = useState<'T1' | 'T2'>('T1');
+
+  // Responsive Layout States
+  const [windowWidth, setWindowWidth] = useState<number>(
+    typeof window !== 'undefined' ? window.innerWidth : 1440
+  );
+  const [mobileView, setMobileView] = useState<'MAP' | 'QUEUE' | 'EVIDENCE'>('MAP');
+  const [tabletDrawerOpen, setTabletDrawerOpen] = useState<boolean>(false);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1200;
+
+  // Track window resizing
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Benchmark Modal State
   const [showBenchmarkModal, setShowBenchmarkModal] = useState<boolean>(false);
@@ -147,20 +164,26 @@ export const App: React.FC = () => {
 
           <div style={styles.metaGroup}>
             {/* UTC Telemetry Clock */}
-            <div style={styles.utcBadge}>
-              <OrbitIcon size={12} color="#38bdf8" />
-              <span style={styles.utcText}>{utcTime || 'SYNCHRONIZING...'}</span>
-            </div>
+            {!isMobile && (
+              <div style={styles.utcBadge}>
+                <OrbitIcon size={12} color="#38bdf8" />
+                <span style={styles.utcText}>{utcTime || 'SYNCHRONIZING...'}</span>
+              </div>
+            )}
 
-            <div style={styles.badgeMod}>
-              <span style={styles.modText}>MoD • Indian Army / DGIS</span>
-            </div>
+            {!isMobile && (
+              <div style={styles.badgeMod}>
+                <span style={styles.modText}>MoD • Indian Army / DGIS</span>
+              </div>
+            )}
 
-            <div style={styles.badgeAirgap}>
-              <span style={styles.greenPulse} />
-              <ShieldIcon size={12} color="#10b981" />
-              <span>AIR-GAPPED (100% OFFLINE)</span>
-            </div>
+            {!isMobile && (
+              <div style={styles.badgeAirgap}>
+                <span style={styles.greenPulse} />
+                <ShieldIcon size={12} color="#10b981" />
+                <span>AIR-GAPPED (100% OFFLINE)</span>
+              </div>
+            )}
 
             {/* Benchmark Report Button */}
             <button
@@ -170,7 +193,7 @@ export const App: React.FC = () => {
               title="Open empirical benchmark evaluation dossier"
             >
               <CheckCircleIcon size={13} color="#06090e" />
-              <span>BENCHMARK DOSSIER</span>
+              <span>{isMobile ? 'BENCHMARKS' : 'BENCHMARK DOSSIER'}</span>
             </button>
           </div>
         </header>
@@ -184,54 +207,212 @@ export const App: React.FC = () => {
           />
         </div>
 
-        {/* 3-Column Tactical Workstation Layout */}
+        {/* Mobile View Switcher Tab Bar (< 768px) */}
+        {isMobile && (
+          <div style={styles.mobileTabBar} role="tablist" aria-label="Mobile View Switcher">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileView === 'MAP'}
+              onClick={() => setMobileView('MAP')}
+              style={{
+                ...styles.mobileTabBtn,
+                ...(mobileView === 'MAP' ? styles.mobileTabBtnActive : {}),
+              }}
+            >
+              <SatelliteIcon size={13} color={mobileView === 'MAP' ? '#38bdf8' : '#64748b'} />
+              <span>MAP VIEW</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileView === 'QUEUE'}
+              onClick={() => setMobileView('QUEUE')}
+              style={{
+                ...styles.mobileTabBtn,
+                ...(mobileView === 'QUEUE' ? styles.mobileTabBtnActive : {}),
+              }}
+            >
+              <LayersIcon size={13} color={mobileView === 'QUEUE' ? '#38bdf8' : '#64748b'} />
+              <span>QUEUE ({candidates.length})</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileView === 'EVIDENCE'}
+              onClick={() => setMobileView('EVIDENCE')}
+              style={{
+                ...styles.mobileTabBtn,
+                ...(mobileView === 'EVIDENCE' ? styles.mobileTabBtnActive : {}),
+              }}
+            >
+              <ShieldIcon size={13} color={mobileView === 'EVIDENCE' ? '#38bdf8' : '#64748b'} />
+              <span>EVIDENCE</span>
+            </button>
+          </div>
+        )}
+
+        {/* Responsive Tactical Workstation Layout */}
         <div style={styles.workstation}>
-          {/* Left Column: Review Queue (340px) */}
-          <div style={styles.queueCol}>
-            <ReviewQueue
-              candidates={candidates}
-              selectedCandidate={selectedCandidate}
-              onSelectCandidate={setSelectedCandidate}
-              isLoading={isLoading}
-            />
-          </div>
+          {isMobile ? (
+            /* Mobile View Switcher: active view occupies 100% viewport */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', overflow: 'hidden' }}>
+              {mobileView === 'MAP' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+                  <MapViewer
+                    candidates={candidates}
+                    selectedCandidate={selectedCandidate}
+                    onSelectCandidate={setSelectedCandidate}
+                    activeEpoch={activeEpoch}
+                    onEpochChange={setActiveEpoch}
+                  />
+                </div>
+              )}
+              {mobileView === 'QUEUE' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <ReviewQueue
+                    candidates={candidates}
+                    selectedCandidate={selectedCandidate}
+                    onSelectCandidate={(c) => {
+                      setSelectedCandidate(c);
+                      setMobileView('MAP');
+                    }}
+                    isLoading={isLoading}
+                  />
+                </div>
+              )}
+              {mobileView === 'EVIDENCE' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <EvidenceCard
+                    candidate={selectedCandidate}
+                    onDecisionSubmitted={handleDecisionSubmitted}
+                  />
+                </div>
+              )}
+            </div>
+          ) : isTablet ? (
+            /* Tablet Layout (768px – 1199px): Map primary + Evidence side + Queue drawer toggle */
+            <>
+              {/* Tablet Queue Toggle Floating Button */}
+              <button
+                type="button"
+                onClick={() => setTabletDrawerOpen((prev) => !prev)}
+                style={styles.tabletDrawerBtn}
+                title="Toggle review candidate queue"
+                aria-label="Toggle review queue drawer"
+              >
+                <LayersIcon size={13} color="#38bdf8" />
+                <span>{tabletDrawerOpen ? 'CLOSE QUEUE' : `QUEUE (${candidates.length})`}</span>
+              </button>
 
-          {/* Center Column: MapLibre Map Viewer (Flex 1) */}
-          <div style={styles.mapCol}>
-            <MapViewer
-              candidates={candidates}
-              selectedCandidate={selectedCandidate}
-              onSelectCandidate={setSelectedCandidate}
-              activeEpoch={activeEpoch}
-              onEpochChange={setActiveEpoch}
-            />
-          </div>
+              {/* Tablet Collapsible Queue Drawer */}
+              {tabletDrawerOpen && (
+                <div style={styles.tabletDrawerBackdrop} onClick={() => setTabletDrawerOpen(false)}>
+                  <div style={styles.tabletDrawerContent} onClick={(e) => e.stopPropagation()}>
+                    <div style={styles.drawerHeader}>
+                      <span style={styles.drawerTitle}>REVIEW CANDIDATES ({candidates.length})</span>
+                      <button
+                        type="button"
+                        onClick={() => setTabletDrawerOpen(false)}
+                        style={styles.drawerCloseBtn}
+                        aria-label="Close queue drawer"
+                      >
+                        <CloseIcon size={14} color="#94a3b8" />
+                      </button>
+                    </div>
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      <ReviewQueue
+                        candidates={candidates}
+                        selectedCandidate={selectedCandidate}
+                        onSelectCandidate={(c) => {
+                          setSelectedCandidate(c);
+                          setTabletDrawerOpen(false);
+                        }}
+                        isLoading={isLoading}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          {/* Right Column: Evidence-First Inspection & Decision Card (440px) */}
-          <div style={styles.evidenceCol}>
-            <EvidenceCard
-              candidate={selectedCandidate}
-              onDecisionSubmitted={handleDecisionSubmitted}
-            />
-          </div>
+              {/* Center Map Viewer */}
+              <div style={styles.mapCol}>
+                <MapViewer
+                  candidates={candidates}
+                  selectedCandidate={selectedCandidate}
+                  onSelectCandidate={setSelectedCandidate}
+                  activeEpoch={activeEpoch}
+                  onEpochChange={setActiveEpoch}
+                />
+              </div>
+
+              {/* Right Evidence Panel */}
+              <div
+                style={{
+                  ...styles.evidenceCol,
+                  width: windowWidth < 960 ? '340px' : '380px',
+                  minWidth: windowWidth < 960 ? '340px' : '380px',
+                }}
+              >
+                <EvidenceCard
+                  candidate={selectedCandidate}
+                  onDecisionSubmitted={handleDecisionSubmitted}
+                />
+              </div>
+            </>
+          ) : (
+            /* Desktop Layout (>= 1200px): Standard 3-Column Workstation */
+            <>
+              <div style={styles.queueCol}>
+                <ReviewQueue
+                  candidates={candidates}
+                  selectedCandidate={selectedCandidate}
+                  onSelectCandidate={setSelectedCandidate}
+                  isLoading={isLoading}
+                />
+              </div>
+
+              <div style={styles.mapCol}>
+                <MapViewer
+                  candidates={candidates}
+                  selectedCandidate={selectedCandidate}
+                  onSelectCandidate={setSelectedCandidate}
+                  activeEpoch={activeEpoch}
+                  onEpochChange={setActiveEpoch}
+                />
+              </div>
+
+              <div style={styles.evidenceCol}>
+                <EvidenceCard
+                  candidate={selectedCandidate}
+                  onDecisionSubmitted={handleDecisionSubmitted}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Bottom Temporal Timeline Scrubber (NASA Worldview Style) */}
-        <TimelineScrubber
-          beforeDate={selectedCandidate?.evidence?.before_date || '2023-02-03'}
-          afterDate={selectedCandidate?.evidence?.after_date || '2024-11-29'}
-          activeEpoch={activeEpoch}
-          onEpochChange={setActiveEpoch}
-        />
+        {(!isMobile || mobileView === 'MAP') && (
+          <TimelineScrubber
+            beforeDate={selectedCandidate?.evidence?.before_date || '2023-02-03'}
+            afterDate={selectedCandidate?.evidence?.after_date || '2024-11-29'}
+            activeEpoch={activeEpoch}
+            onEpochChange={setActiveEpoch}
+          />
+        )}
 
         {/* Operational Telemetry Footer */}
-        <footer style={styles.footer}>
-          <div style={styles.footerItem}>
-            <span style={styles.footerLabel}>SYSTEM:</span>
-            <span style={{ color: systemOnline ? '#10b981' : '#f59e0b', fontWeight: 700 }}>
-              {systemOnline ? 'OPERATIONAL (AIR-GAPPED)' : 'DEGRADED'}
-            </span>
-          </div>
+        {!isMobile && (
+          <footer style={styles.footer}>
+            <div style={styles.footerItem}>
+              <span style={styles.footerLabel}>SYSTEM:</span>
+              <span style={{ color: systemOnline ? '#10b981' : '#f59e0b', fontWeight: 700 }}>
+                {systemOnline ? 'OPERATIONAL (AIR-GAPPED)' : 'DEGRADED'}
+              </span>
+            </div>
 
           <div style={styles.footerDivider} />
 
@@ -272,6 +453,7 @@ export const App: React.FC = () => {
             </span>
           </div>
         </footer>
+        )}
 
         {/* Benchmark Evaluation Modal */}
         {showBenchmarkModal && (
@@ -477,10 +659,100 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#070d19',
     borderBottom: '1px solid #141f2d',
   },
+  mobileTabBar: {
+    display: 'flex',
+    backgroundColor: '#070d19',
+    borderBottom: '1px solid #182635',
+    padding: '4px 8px',
+    gap: '6px',
+    flexShrink: 0,
+  },
+  mobileTabBtn: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    padding: '7px 8px',
+    backgroundColor: '#0c131c',
+    border: '1px solid #1e293b',
+    borderRadius: '4px',
+    color: '#94a3b8',
+    fontSize: '0.68rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  mobileTabBtnActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8',
+    color: '#38bdf8',
+    fontWeight: 800,
+  },
+  tabletDrawerBtn: {
+    position: 'absolute',
+    top: '10px',
+    left: '10px',
+    zIndex: 20,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    backgroundColor: '#0b1118',
+    border: '1px solid #38bdf8',
+    color: '#38bdf8',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    fontSize: '0.70rem',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+  },
+  tabletDrawerBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    zIndex: 1000,
+    display: 'flex',
+  },
+  tabletDrawerContent: {
+    width: '320px',
+    maxWidth: '85vw',
+    height: '100%',
+    backgroundColor: '#070d19',
+    borderRight: '1px solid #182635',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '4px 0 24px rgba(0, 0, 0, 0.8)',
+  },
+  drawerHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 16px',
+    borderBottom: '1px solid #182635',
+    backgroundColor: '#0b1118',
+  },
+  drawerTitle: {
+    fontSize: '0.72rem',
+    fontWeight: 800,
+    color: '#38bdf8',
+    letterSpacing: '0.05em',
+  },
+  drawerCloseBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+  },
   workstation: {
     display: 'flex',
     flex: 1,
     overflow: 'hidden',
+    position: 'relative',
   },
   queueCol: {
     width: '340px',

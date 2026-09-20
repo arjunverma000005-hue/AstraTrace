@@ -1,7 +1,7 @@
 {
-  "report_id": "bench_e86fd00e39c2",
-  "timestamp": "2026-09-19T15:36:34.722969Z",
-  "duration_seconds": 15.41,
+  "report_id": "bench_ea80473fa5f2",
+  "timestamp": "2026-09-20T10:54:38.869411Z",
+  "duration_seconds": 14.837,
   "platform": "Windows 10 (AMD64)",
   "offline_mode": true,
   "retrieval": {
@@ -12,21 +12,21 @@
       "mean_recall_at_k": 0.0,
       "mean_mrr": 0.0,
       "mean_ndcg_at_k": 0.0,
-      "mean_latency_ms": 47.7225
+      "mean_latency_ms": 47.6675
     },
     "semantic": {
       "mean_precision_at_k": 0.0833,
       "mean_recall_at_k": 0.125,
       "mean_mrr": 0.125,
       "mean_ndcg_at_k": 0.0967,
-      "mean_latency_ms": 9.82
+      "mean_latency_ms": 10.57
     },
     "hybrid": {
       "mean_precision_at_k": 0.0,
       "mean_recall_at_k": 0.0,
       "mean_mrr": 0.0,
       "mean_ndcg_at_k": 0.0,
-      "mean_latency_ms": 159.82
+      "mean_latency_ms": 131.555
     }
   },
   "change_detection": {
@@ -90,14 +90,14 @@
     "verified_artifacts": 4,
     "tampered_artifacts_detected": 1,
     "missing_artifacts": 0,
-    "mean_verification_latency_ms": 19.461,
-    "dag_node_count": 36,
-    "dag_edge_count": 35,
+    "mean_verification_latency_ms": 19.185,
+    "dag_node_count": 40,
+    "dag_edge_count": 39,
     "dossier_export_valid": true
   },
   "system": {
-    "mean_query_latency_ms": 2574.27,
-    "p95_query_latency_ms": 3521.83,
+    "mean_query_latency_ms": 2484.97,
+    "p95_query_latency_ms": 3454.75,
     "evidence_first_completeness_pct": 100.0,
     "airgap_isolation_verified": true
   },
